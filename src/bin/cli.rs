@@ -7,7 +7,7 @@
 use serde_xml_rs;
 use snafu::{Snafu, ResultExt, OptionExt};
 use std::fs;
-use uspto::deserialize::PatentGrant;
+use uspto::deserialize;
 
 fn main() {
     match run() {
@@ -21,19 +21,13 @@ fn run() -> Result<(), Error> {
         .nth(1)
         .context(CliNoPath)?;
 
-    let xml_data = fs:: read_to_string(data_filepath)
+    let xml_data = fs::File::open(data_filepath)
         .context(OpenDataFile)?;
 
-    let xml_patents = xml_data.split(SPLIT_PATENTS);
+    // deserialize returns an iter of PatentGrant
+    let patents = uspto::deserialize();
 
-    let patents: Vec<PatentGrant> = xml_patents
-        .map(|xml_patent| {
-            serde_xml_rs::from_reader(xml_patent.as_bytes())
-            .context(Deser)
-        })
-        .collect::<Result<_,_>>()?;
-
-    println!("{:#?}", patents[0]);
+    //println!("patents: {}", patents.len());
 
     Ok(())
 }
@@ -51,7 +45,3 @@ enum Error {
     Deser{ source: serde_xml_rs::Error },
 }
 
-// TODO use regex to capture this from each file before splitting and parsing.
-const SPLIT_PATENTS: &str =
-r#"<?xml version="1.0" encoding="UTF-8"?>
-!DOCTYPE us-patent-grant SYSTEM "us-patent-grant-v45-2014-04-03.dtd" [ ]>"#;

@@ -1,4 +1,7 @@
-pub mod deserialize;
+pub mod data;
+mod deserialize;
+
+pub use crate::deserialize::deserialize;
 
 #[cfg(test)]
 mod tests {
