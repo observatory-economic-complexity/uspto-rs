@@ -13,6 +13,6 @@ pub enum Error {
     //          `&quick_xml::errors::Error : snafu::AsErrorSource`
     //          `quick_xml::errors::Error : snafu::AsErrorSource`
     #[snafu(display("Xml Deserialization Error: {}", src))]
-    Deserialization { src: String },
+    Deser{ src: String },
 }
 
