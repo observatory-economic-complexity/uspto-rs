@@ -4,10 +4,10 @@
 
 #![feature(custom_attribute)]
 
-use serde_xml_rs;
 use snafu::{Snafu, ResultExt, OptionExt};
 use std::fs;
-use uspto::deserialize;
+use std::io::BufReader;
+use uspto::PatentGrants;
 
 fn main() {
     match run() {
@@ -21,11 +21,12 @@ fn run() -> Result<(), Error> {
         .nth(1)
         .context(CliNoPath)?;
 
-    let xml_data = fs::File::open(data_filepath)
+    let f = fs::File::open(data_filepath)
         .context(OpenDataFile)?;
+    let f = BufReader::new(f);
 
     // deserialize returns an iter of PatentGrant
-    let patents = uspto::deserialize();
+    let patents = PatentGrants::from_reader(f);
 
     //println!("patents: {}", patents.len());
 
@@ -41,7 +42,5 @@ enum Error {
     OpenDataFile { source: std::io::Error },
     #[snafu(display("Read Datafile Error: {}", source))]
     ReadDataFile { source: std::io::Error },
-    #[snafu(display("Deserialize Error: {}", source))]
-    Deser{ source: serde_xml_rs::Error },
 }
 

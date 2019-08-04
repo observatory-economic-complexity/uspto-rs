@@ -1,7 +1,7 @@
 pub mod data;
 mod deserialize;
 
-pub use crate::deserialize::deserialize;
+pub use crate::deserialize::PatentGrants;
 
 #[cfg(test)]
 mod tests {
