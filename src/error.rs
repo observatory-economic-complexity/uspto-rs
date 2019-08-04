@@ -1,0 +1,18 @@
+use snafu::Snafu;
+
+#[derive(Debug, Snafu)]
+pub enum Error {
+    // wait for fix to:
+    // error[E0599]: no method named `as_error_source` found for type `&quick_xml::errors::Error` in the current scope
+    // --> src/error.rs:3:17
+    //  |
+    //3 | #[derive(Debug, Snafu)]
+    //  |                 ^^^^^
+    //  |
+    //  = note: the method `as_error_source` exists but the following trait bounds were not satisfied:
+    //          `&quick_xml::errors::Error : snafu::AsErrorSource`
+    //          `quick_xml::errors::Error : snafu::AsErrorSource`
+    #[snafu(display("Xml Deserialization Error: {}", src))]
+    Deserialization { src: String },
+}
+
