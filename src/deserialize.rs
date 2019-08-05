@@ -56,8 +56,8 @@ impl<B: BufRead> PatentGrants<B> {
                 Ok(Event::Start(ref e)) => {
                     match e.name() {
                         b"us-claim-statement" => {
-                            try_some!(deser_text(e.name(), &mut self.rdr));
-                        }
+                            patent_grant.us_claim_statement = try_some!(deser_text(e.name(), &mut self.rdr));
+                        },
                         _ => continue,
                     }
                 },
