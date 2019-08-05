@@ -1,6 +1,7 @@
 use snafu::Snafu;
 
 #[derive(Debug, Snafu)]
+#[snafu(visibility="pub(crate)")]
 pub enum Error {
     // wait for fix to:
     // error[E0599]: no method named `as_error_source` found for type `&quick_xml::errors::Error` in the current scope

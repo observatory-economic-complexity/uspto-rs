@@ -1,9 +1,11 @@
 use quick_xml::{self, Reader};
-use quick_xml::events::Event;
+use quick_xml::events::{Event, BytesText};
+use snafu::OptionExt;
 use std::io::BufRead;
 
 use crate::data::*;
 use crate::error::Error;
+use crate::error::Deser;
 
 pub struct PatentGrants<B: BufRead> {
     rdr: quick_xml::Reader<B>,
@@ -48,65 +50,9 @@ impl<B: BufRead> PatentGrants<B> {
         loop {
             match self.rdr.read_event(&mut self.buf) {
                 Ok(Event::PI(pi_bytes)) => {
-                    // top level program instruction handling.
-                    // encompasses all possible descriptions in grant:
-                    // - brief-description-of-drawings
-                    // - BRFSUM (brief summary)
-                    // - RELAPP (other patent relations)
-                    // - DETDESC (detailed description)
-                    // - in-line-formulae
-                    deser_top_pi(&mut self.rdr, &mut patent_grant)
-
-                    let pi_name_res = pi_bytes.unescape_and_decode(&self.rdr);
-                    let pi_name = match pi_name_res {
-                        Ok(ref s) => s.split_whitespace().nth(0).expect("no name for PI").to_string(),
-                        Err(err) => return Some(Err(Error::Deser { src: "No name for PI".into() })),
-                    };
-
-                    let end = match pi_name_res {
-                        Ok(s) => s.split_whitespace().last().expect("no end for PI").to_string(),
-                        Err(err) => return Some(Err(Error::Deser { src: "No end for PI".into() })),
-                    };
-
-                    if end != "end=\"lead\"" {
-                        // just skip if not lead; it means it's some other top level PI
-                        continue;
+                    if let Err(err) =  deser_top_pi(pi_bytes, &mut self.rdr, &mut patent_grant) {
+                        return Some(Err(err));
                     }
-
-                    // get end byte of PI.
-                    // find beginning byte of next PI.
-                    // get string in between
-                    let mut text_buf = Vec::new();
-                    let mut pi_name_2 = String::new();
-                    loop {
-                        match self.rdr.read_event(&mut text_buf) {
-                            Ok(Event::PI(pi_bytes_2)) => {
-                                let pi_name_2_res = pi_bytes_2.unescape_and_decode(&self.rdr);
-                                pi_name_2 = match pi_name_2_res {
-                                    Ok(ref s) => s.split_whitespace().nth(0).expect("no name for PI").to_string(),
-                                    Err(err) => return Some(Err(Error::Deser { src: "No name for PI".into() })),
-                                };
-
-                                let end = match pi_name_2_res {
-                                    Ok(s) => s.split_whitespace().last().expect("no end for PI").to_string(),
-                                    Err(err) => return Some(Err(Error::Deser { src: "No end for PI".into() })),
-                                };
-
-                                if end != "end=\"tail\"" {
-                                    // in case of nested PI; I don't care about them unless they're
-                                    // one of the description ones, so just grab it as part of text
-                                    continue;
-                                }
-
-                                break;
-                            },
-                            Ok(_) => continue,
-                            Err(err) => return Some(Err(Error::Deser { src: err.to_string() })),
-
-                        }
-                    }
-                    let text = String::from_utf8(text_buf.to_vec()).expect("invalid utf8");
-                    patent_grant.descriptions.insert(pi_name, text);
                 },
                 Ok(Event::Eof) => break,
                 Ok(Event::End(e)) => {
@@ -165,3 +111,76 @@ fn deser_header<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>) -
     }
 }
 
+/// top level program instruction handling.
+/// encompasses all possible descriptions in grant:
+/// - brief-description-of-drawings
+/// - BRFSUM (brief summary)
+/// - RELAPP (other patent relations)
+/// - DETDESC (detailed description)
+/// - in-line-formulae
+///
+/// This one is a little more involved. The idea is to go from the top-level program instruction,
+/// and find the next top-level instruction that has end = tail. In the meantime, all of the
+/// bytes are being written to a new buffer instead of the overall buffer. That means that the
+/// new buffer cvan then be converted directly to a string.
+///
+/// One downside of this string conversion: tags are lost (i guess quick-xml didn't think it needed
+/// to save them)
+fn deser_top_pi<B: BufRead>(
+    pi_bytes: BytesText,
+    rdr: &mut quick_xml::Reader<B>,
+    patent_grant: &mut PatentGrant
+    ) -> Result<(), Error>
+{
+    let pi_name_res = pi_bytes.unescape_and_decode(&rdr);
+    let pi_name = match pi_name_res {
+        Ok(ref s) => s.split_whitespace().nth(0).context(Deser { src: "No name for PI".to_string() })?,
+        Err(_) => return Err(Error::Deser { src: "No name for PI".into() }),
+    };
+
+    let end = match pi_name_res {
+        Ok(ref s) => s.split_whitespace().last().context(Deser { src: "No end for PI".to_string() })?,
+        Err(_) => return Err(Error::Deser { src: "No end for PI".into() }),
+    };
+
+    if end != "end=\"lead\"" {
+        // just skip if not lead; it means it's some other top level PI
+        return Ok(());
+    }
+
+    // get end byte of PI.
+    // find beginning byte of next PI.
+    // get string in between
+    let mut text_buf = Vec::new();
+    loop {
+        match rdr.read_event(&mut text_buf) {
+            Ok(Event::PI(pi_bytes_2)) => {
+                // just search for the next tail, don't need to match on name.
+                let pi_2_res = pi_bytes_2.unescape_and_decode(&rdr);
+
+                let end = match pi_2_res {
+                    Ok(ref s) => s.split_whitespace().last().context(Deser { src: "No end for PI".to_string() })?,
+                    Err(_) => return Err(Error::Deser { src: "No end for PI".into() }),
+                };
+
+                if end != "end=\"tail\"" {
+                    // in case of nested PI; I don't care about them unless they're
+                    // one of the description ones, so just grab it as part of text
+                    continue;
+                }
+
+                break;
+            },
+            Ok(_) => continue,
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+
+        }
+    }
+    let text = match String::from_utf8(text_buf.to_vec()) {
+        Ok(s) => s,
+        Err(err) => return Err(Error::Deser { src: err.to_string() }),
+    };
+    patent_grant.descriptions.insert(pi_name.to_string(), text);
+
+    Ok(())
+}
