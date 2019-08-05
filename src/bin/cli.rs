@@ -28,7 +28,17 @@ fn run() -> Result<(), Error> {
     // deserialize returns an iter of PatentGrant
     let patents = PatentGrants::from_reader(f);
 
-    println!("patents: {}", patents.count());
+    let mut count = 0;
+    for patent_res in patents {
+        match patent_res {
+            Ok(_) => {
+                count += 1;
+                println!("patent count: {}", count);
+            },
+            Err(_) => (),
+        }
+    }
+
 
     Ok(())
 }

@@ -1,6 +1,5 @@
 use quick_xml::{self, Reader};
 use quick_xml::events::Event;
-use snafu::{Snafu, ResultExt, OptionExt};
 use std::io::BufRead;
 
 use crate::data::*;
@@ -29,15 +28,24 @@ impl<B: BufRead> PatentGrants<B> {
     /// returns None if no more data
     /// else if there's an error in deser (e.g. partial data)
     /// return Some(Result<_>)
-    fn deser_patent_grant(&mut self) -> Result<PatentGrant, Error> {
+    fn deser_patent_grant(&mut self) -> Option<Result<PatentGrant, Error>> {
         // first skip through headers
-        deser_header(&mut self.rdr, &mut self.buf)?;
+        let hdr = deser_header(&mut self.rdr, &mut self.buf);
+        match hdr {
+            Some(hdr_res) => {
+                if let Err(err) = hdr_res {
+                    return Some(Err(err));
+                }
+            },
+            None => return None,
+        }
         self.buf.clear();
+        println!("skipped headers");
 
         // if headers are in the right place, we can continue
         let mut patent_grant = PatentGrant::default();
 
-        Ok(patent_grant)
+        Some(Ok(patent_grant))
     }
 }
 
@@ -52,25 +60,29 @@ impl<B: BufRead> Iterator for PatentGrants<B> {
         let res = self.deser_patent_grant();
         self.buf.clear();
 
-        Some(res)
+        res
     }
 }
 
 // helper fns for deser
 // never clear buffer inside fn!
 
-fn deser_header<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>) -> Result<(), Error> {
+/// only returns None if there's no input. Otherwise
+/// tries to parse, and will error if necessary.
+fn deser_header<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>) -> Option<Result<(), Error>> {
     // first match xml declaration
     match rdr.read_event(buf) {
         Ok(Event::Decl(_)) => (),
-        Ok(_) => return Err(Error::Deser { src: "xml decl not found at head of patent grant xml".to_owned() }),
-        Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        Ok(Event::Eof) => return None,
+        Ok(_) => return Some(Err(Error::Deser { src: "xml decl not found at head of patent grant xml".to_owned() })),
+        Err(err) => return Some(Err(Error::Deser { src: err.to_string() })),
     }
 
     // then match doctype declaration
     match rdr.read_event(buf) {
-        Ok(Event::DocType(_)) => Ok(()),
-        Ok(_) => return Err(Error::Deser { src: "doctype decl not found at head of patent grant xml".to_owned() }),
-        Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        Ok(Event::DocType(_)) => Some(Ok(())),
+        Ok(Event::Eof) => None,
+        Ok(_) => Some(Err(Error::Deser { src: "doctype decl not found at head of patent grant xml".to_owned() })),
+        Err(err) => Some(Err(Error::Deser { src: err.to_string() })),
     }
 }
