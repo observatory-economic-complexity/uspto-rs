@@ -33,6 +33,7 @@ fn run() -> Result<(), Error> {
             Ok(patent) => {
                 println!("{:#?}", patent.descriptions);
                 println!("{:#?}", patent.us_claim_statement);
+                println!("{:#?}", patent.claims);
             },
             Err(err) => {
                 eprintln!("{}", err);

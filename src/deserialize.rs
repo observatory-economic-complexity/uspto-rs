@@ -58,6 +58,9 @@ impl<B: BufRead> PatentGrants<B> {
                         b"us-claim-statement" => {
                             patent_grant.us_claim_statement = try_some!(deser_text(e.name(), &mut self.rdr));
                         },
+                        b"claims" => {
+                            try_some!(deser_claims(&mut self.rdr, &mut self.buf, &mut patent_grant));
+                        },
                         _ => continue,
                     }
                 },
@@ -188,6 +191,39 @@ fn deser_top_pi<B: BufRead>(
         Err(err) => return Err(Error::Deser { src: err.to_string() }),
     };
     patent_grant.descriptions.insert(pi_name.to_string(), text);
+
+    Ok(())
+}
+
+fn deser_claims<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    patent_grant: &mut PatentGrant
+    ) -> Result<(), Error>
+{
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                if e.name() == b"claim" {
+                    match rdr.read_event(buf) {
+                        Ok(Event::Start(ref e)) => {
+                            if e.name() == b"claim-text" {
+                                patent_grant.claims.push(deser_text(e.name(), rdr)?);
+                            } else {
+                                break;
+                            }
+                        },
+                        Ok(_) => break,
+                        Err(err) => return Err(Error::Deser { src: err.to_string() }),
+                    }
+                } else {
+                    break; // if no claims, exit
+                }
+            },
+            Ok(_) => break, // if there's no more claims, exit
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        }
+    }
 
     Ok(())
 }

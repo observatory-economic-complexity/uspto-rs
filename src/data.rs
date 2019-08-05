@@ -5,7 +5,8 @@ use std::collections::HashMap;
 #[derive(Debug, Default)]
 pub struct PatentGrant {
     pub us_bibliographic_data_grant: BibliographicDataGrant,
-    pub drawings: Drawings,
+
+    //pub drawings: Drawings,
 
     // encompasses all possible descriptions in grant:
     // - brief-description-of-drawings
@@ -16,7 +17,7 @@ pub struct PatentGrant {
     pub descriptions: HashMap<String, String>,
 
     pub us_claim_statement: String,
-    pub claims: Claims,
+    pub claims: Vec<String>,
 }
 
 #[derive(Debug, Default)]
@@ -175,39 +176,3 @@ pub struct PrimaryExaminer {
     pub department: String,
 }
 
-#[derive(Debug, Default)]
-pub struct Drawings {
-    id: String,
-    figures: Vec<Figure>,
-}
-
-#[derive(Debug)]
-pub struct Figure {
-    id: String,
-    num: String,
-    img: Img,
-}
-
-#[derive(Debug)]
-pub struct Img {
-    id: String,
-    he: String,
-    wi: String,
-    file: String,
-    alt: String,
-    img_content: String,
-    img_format: String,
-}
-
-#[derive(Debug, Default)]
-pub struct Claims {
-    id: String,
-    pub claims: Vec<Claim>,
-}
-
-#[derive(Debug)]
-pub struct Claim {
-    id: String,
-    num: String,
-    claim_text: String,
-}
