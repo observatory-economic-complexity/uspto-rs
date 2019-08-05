@@ -6,6 +6,7 @@ use std::io::BufRead;
 use crate::data::*;
 use crate::error::Error;
 use crate::error::Deser;
+use crate::try_some;
 
 pub struct PatentGrants<B: BufRead> {
     rdr: quick_xml::Reader<B>,
@@ -46,12 +47,18 @@ impl<B: BufRead> PatentGrants<B> {
         // if headers are in the right place, we can continue
         let mut patent_grant = PatentGrant::default();
 
-        // deser for each element, change default patent grant
+        // deser for each element, update default patent grant
         loop {
             match self.rdr.read_event(&mut self.buf) {
                 Ok(Event::PI(pi_bytes)) => {
-                    if let Err(err) =  deser_top_pi(pi_bytes, &mut self.rdr, &mut patent_grant) {
-                        return Some(Err(err));
+                    try_some!(deser_top_pi(pi_bytes, &mut self.rdr, &mut patent_grant));
+                },
+                Ok(Event::Start(ref e)) => {
+                    match e.name() {
+                        b"us-claim-statement" => {
+                            try_some!(deser_text(e.name(), &mut self.rdr));
+                        }
+                        _ => continue,
                     }
                 },
                 Ok(Event::Eof) => break,
@@ -184,3 +191,11 @@ fn deser_top_pi<B: BufRead>(
 
     Ok(())
 }
+
+fn deser_text<B: BufRead, K: AsRef<[u8]>>(end: K, rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
+        match rdr.read_text(end, &mut Vec::new()) {
+            Ok(txt) => Ok(txt),
+            Err(err) => Err(Error::Deser { src: err.to_string() }),
+        }
+}
+
