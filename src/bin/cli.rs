@@ -32,7 +32,7 @@ fn run() -> Result<(), Error> {
     for patent_res in patents.skip(1000).take(10) {
         match patent_res {
             Ok(patent) => {
-                println!("{:?}", patent.descriptions);
+                println!("{:#?}", patent.descriptions);
                 count += 1;
                 println!("patent count: {}", count);
             },

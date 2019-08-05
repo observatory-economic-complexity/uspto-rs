@@ -48,6 +48,15 @@ impl<B: BufRead> PatentGrants<B> {
         loop {
             match self.rdr.read_event(&mut self.buf) {
                 Ok(Event::PI(pi_bytes)) => {
+                    // top level program instruction handling.
+                    // encompasses all possible descriptions in grant:
+                    // - brief-description-of-drawings
+                    // - BRFSUM (brief summary)
+                    // - RELAPP (other patent relations)
+                    // - DETDESC (detailed description)
+                    // - in-line-formulae
+                    deser_top_pi(&mut self.rdr, &mut patent_grant)
+
                     let pi_name_res = pi_bytes.unescape_and_decode(&self.rdr);
                     let pi_name = match pi_name_res {
                         Ok(ref s) => s.split_whitespace().nth(0).expect("no name for PI").to_string(),
@@ -60,14 +69,8 @@ impl<B: BufRead> PatentGrants<B> {
                     };
 
                     if end != "end=\"lead\"" {
+                        // just skip if not lead; it means it's some other top level PI
                         continue;
-                        //return Some(Err(
-                        //    Error::Deser {
-                        //        src: format!("first PI not lead, pos: {}", self.rdr.buffer_position()),
-                        //    }
-                        //));
-                    } else {
-                        println!("lead");
                     }
 
                     // get end byte of PI.
@@ -90,12 +93,11 @@ impl<B: BufRead> PatentGrants<B> {
                                 };
 
                                 if end != "end=\"tail\"" {
-                                    // some tags, like img, also have a `?` for no good reason
+                                    // in case of nested PI; I don't care about them unless they're
+                                    // one of the description ones, so just grab it as part of text
                                     continue;
-                                    //return Some(Err(Error::Deser { src: "next PI not tail".into() }));
-                                } else {
-                                    println!("tail");
                                 }
+
                                 break;
                             },
                             Ok(_) => continue,
@@ -104,8 +106,6 @@ impl<B: BufRead> PatentGrants<B> {
                         }
                     }
                     let text = String::from_utf8(text_buf.to_vec()).expect("invalid utf8");
-                    //println!("pi_name: {:?}", pi_name);
-                    //println!("pi_name_2: {:?}", pi_name_2);
                     patent_grant.descriptions.insert(pi_name, text);
                 },
                 Ok(Event::Eof) => break,
