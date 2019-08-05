@@ -1,10 +1,20 @@
 //! data struct definitions for xml data
 
+use std::collections::HashMap;
+
 #[derive(Debug, Default)]
 pub struct PatentGrant {
     pub us_bibliographic_data_grant: BibliographicDataGrant,
     pub drawings: Drawings,
-    pub description: Description,
+
+    // encompasses all possible descriptions in grant:
+    // - brief-description-of-drawings
+    // - BRFSUM (brief summary)
+    // - RELAPP (other patent relations)
+    // - DETDESC (detailed description)
+    // - in-line-formulae
+    pub descriptions: HashMap<String, String>,
+
     pub us_claim_statement: String,
     pub claims: Claims,
 }
@@ -190,12 +200,6 @@ pub struct Img {
 }
 
 #[derive(Debug, Default)]
-pub struct Description {
-    id: String,
-    description_of_drawings: String,
-}
-
-#[derive(Debug, Default)]
 pub struct Claims {
     id: String,
     pub claims: Vec<Claim>,
@@ -207,10 +211,3 @@ pub struct Claim {
     num: String,
     claim_text: String,
 }
-
-// TODO this is probably an html document, clean it after.
-#[derive(Debug)]
-pub struct DescriptionOfDrawings {
-    body: String,
-}
-

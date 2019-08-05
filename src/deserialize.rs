@@ -40,10 +40,60 @@ impl<B: BufRead> PatentGrants<B> {
             None => return None,
         }
         self.buf.clear();
-        println!("skipped headers");
 
         // if headers are in the right place, we can continue
         let mut patent_grant = PatentGrant::default();
+
+        // deser for each element, change default patent grant
+        loop {
+            match self.rdr.read_event(&mut self.buf) {
+                Ok(Event::PI(pi_bytes)) => {
+                    let pi_name_res = pi_bytes.unescape_and_decode(&self.rdr);
+                    let pi_name = match pi_name_res {
+                        Ok(s) => s.split_whitespace().nth(0).expect("no name for PI").to_string(),
+                        Err(err) => return Some(Err(Error::Deser { src: "No name for PI".into() })),
+                    };
+
+                    // get end byte of PI.
+                    // find beginning byte of next PI.
+                    // get string in between
+                    let mut text_buf = Vec::new();
+                    let mut pi_name_2 = String::new();
+                    loop {
+                        match self.rdr.read_event(&mut text_buf) {
+                            Ok(Event::PI(pi_bytes_2)) => {
+                                let pi_name_2_res = pi_bytes_2.unescape_and_decode(&self.rdr);
+                                pi_name_2 = match pi_name_2_res {
+                                    Ok(s) => s.split_whitespace().nth(0).expect("no name for PI").to_string(),
+                                    Err(err) => return Some(Err(Error::Deser { src: "No name for PI".into() })),
+                                };
+                                break;
+                            },
+                            Ok(_) => continue,
+                            Err(err) => return Some(Err(Error::Deser { src: err.to_string() })),
+
+                        }
+                    }
+                    let text = String::from_utf8(text_buf.to_vec()).expect("invalid utf8");
+                    // patent_grant.description = description_text
+                    println!("pi_name: {:?}", pi_name);
+                    println!("pi_name_2: {:?}", pi_name_2);
+                    println!("{}", text);
+                },
+                Ok(Event::Eof) => break,
+                Ok(Event::End(e)) => {
+                    if e.name() == b"us-patent-grant" {
+                        break;
+                    } else {
+                        continue;
+                    }
+                },
+                Ok(_) => continue,
+                Err(err) => return Some(Err(Error::Deser { src: err.to_string() })),
+            };
+        }
+
+        self.buf.clear();
 
         Some(Ok(patent_grant))
     }
@@ -86,3 +136,4 @@ fn deser_header<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>) -
         Err(err) => Some(Err(Error::Deser { src: err.to_string() })),
     }
 }
+
