@@ -29,13 +29,17 @@ fn run() -> Result<(), Error> {
     let patents = PatentGrants::from_reader(f);
 
     let mut count = 0;
-    for patent_res in patents.take(10) {
+    for patent_res in patents.skip(1000).take(10) {
         match patent_res {
-            Ok(_) => {
+            Ok(patent) => {
+                println!("{:?}", patent.descriptions);
                 count += 1;
                 println!("patent count: {}", count);
             },
-            Err(err) => eprintln!("{}", err),
+            Err(err) => {
+                eprintln!("{}", err);
+                break;
+            },
         }
     }
 

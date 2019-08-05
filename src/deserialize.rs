@@ -50,9 +50,25 @@ impl<B: BufRead> PatentGrants<B> {
                 Ok(Event::PI(pi_bytes)) => {
                     let pi_name_res = pi_bytes.unescape_and_decode(&self.rdr);
                     let pi_name = match pi_name_res {
-                        Ok(s) => s.split_whitespace().nth(0).expect("no name for PI").to_string(),
+                        Ok(ref s) => s.split_whitespace().nth(0).expect("no name for PI").to_string(),
                         Err(err) => return Some(Err(Error::Deser { src: "No name for PI".into() })),
                     };
+
+                    let end = match pi_name_res {
+                        Ok(s) => s.split_whitespace().last().expect("no end for PI").to_string(),
+                        Err(err) => return Some(Err(Error::Deser { src: "No end for PI".into() })),
+                    };
+
+                    if end != "end=\"lead\"" {
+                        continue;
+                        //return Some(Err(
+                        //    Error::Deser {
+                        //        src: format!("first PI not lead, pos: {}", self.rdr.buffer_position()),
+                        //    }
+                        //));
+                    } else {
+                        println!("lead");
+                    }
 
                     // get end byte of PI.
                     // find beginning byte of next PI.
@@ -64,9 +80,22 @@ impl<B: BufRead> PatentGrants<B> {
                             Ok(Event::PI(pi_bytes_2)) => {
                                 let pi_name_2_res = pi_bytes_2.unescape_and_decode(&self.rdr);
                                 pi_name_2 = match pi_name_2_res {
-                                    Ok(s) => s.split_whitespace().nth(0).expect("no name for PI").to_string(),
+                                    Ok(ref s) => s.split_whitespace().nth(0).expect("no name for PI").to_string(),
                                     Err(err) => return Some(Err(Error::Deser { src: "No name for PI".into() })),
                                 };
+
+                                let end = match pi_name_2_res {
+                                    Ok(s) => s.split_whitespace().last().expect("no end for PI").to_string(),
+                                    Err(err) => return Some(Err(Error::Deser { src: "No end for PI".into() })),
+                                };
+
+                                if end != "end=\"tail\"" {
+                                    // some tags, like img, also have a `?` for no good reason
+                                    continue;
+                                    //return Some(Err(Error::Deser { src: "next PI not tail".into() }));
+                                } else {
+                                    println!("tail");
+                                }
                                 break;
                             },
                             Ok(_) => continue,
@@ -75,10 +104,9 @@ impl<B: BufRead> PatentGrants<B> {
                         }
                     }
                     let text = String::from_utf8(text_buf.to_vec()).expect("invalid utf8");
-                    // patent_grant.description = description_text
-                    println!("pi_name: {:?}", pi_name);
-                    println!("pi_name_2: {:?}", pi_name_2);
-                    println!("{}", text);
+                    //println!("pi_name: {:?}", pi_name);
+                    //println!("pi_name_2: {:?}", pi_name_2);
+                    patent_grant.descriptions.insert(pi_name, text);
                 },
                 Ok(Event::Eof) => break,
                 Ok(Event::End(e)) => {
