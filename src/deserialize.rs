@@ -61,6 +61,9 @@ impl<B: BufRead> PatentGrants<B> {
                         b"claims" => {
                             try_some!(deser_claims(&mut self.rdr, &mut self.buf, &mut patent_grant));
                         },
+                        b"us-bibliographic-data-grant" => {
+                            try_some!(deser_biblio(&mut self.rdr, &mut self.buf, &mut patent_grant.us_bibliographic_data_grant));
+                        },
                         _ => continue,
                     }
                 },
@@ -225,6 +228,41 @@ fn deser_claims<B: BufRead>(
         }
     }
 
+    Ok(())
+}
+
+fn deser_biblio<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    biblio: &mut BibliographicDataGrant,
+    ) -> Result<(), Error>
+{
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                match e.name() {
+                    b"publication-reference" => {
+                        deser_doc_id(rdr, &mut biblio.publication_reference)?;
+                    },
+//                    b"" => {
+//                        deser_(&mut self.rdr, &mut self.buf, &mut patent_grant)?;
+//                    },
+                    _ => continue,
+                }
+            },
+            Ok(_) => continue,
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        };
+    }
+}
+
+/// pub struct DocumentId {
+///     pub country: String,
+///     pub doc_number: String,
+///     pub kind: Option<String>,
+///     pub date: String,
+/// }
+fn deser_doc_id<B: BufRead>(rdr: &mut quick_xml::Reader<B>, doc_id: &mut DocumentId) -> Result<(), Error> {
     Ok(())
 }
 
