@@ -231,6 +231,7 @@ fn deser_claims<B: BufRead>(
     Ok(())
 }
 
+/// call after you hit biblio tag
 fn deser_biblio<B: BufRead>(
     rdr: &mut quick_xml::Reader<B>,
     buf: &mut Vec<u8>,
@@ -242,18 +243,28 @@ fn deser_biblio<B: BufRead>(
             Ok(Event::Start(ref e)) => {
                 match e.name() {
                     b"publication-reference" => {
-                        deser_doc_id(rdr, &mut biblio.publication_reference)?;
+                        deser_doc_id(rdr, buf, &mut biblio.publication_reference)?;
                     },
-//                    b"" => {
-//                        deser_(&mut self.rdr, &mut self.buf, &mut patent_grant)?;
-//                    },
-                    _ => continue,
+                    b"application-reference" => {
+                        deser_doc_id(rdr, buf, &mut biblio.application_reference)?;
+                    },
+                    _ => break,
                 }
             },
+            Ok(Event::End(ref e)) => {
+                if e.name() == b"us-bibliographic-grant-data" {
+                break;
+                }
+            },
+            // TODO when all elements in, use this line instead
+            // Ok(_) => return Err(Error::Deser { src: "found non-start-element not in biblio".to_string() }),
+            // for now, can just break out of biblio loop
             Ok(_) => continue,
             Err(err) => return Err(Error::Deser { src: err.to_string() }),
         };
     }
+
+    Ok(())
 }
 
 /// pub struct DocumentId {
@@ -262,14 +273,46 @@ fn deser_biblio<B: BufRead>(
 ///     pub kind: Option<String>,
 ///     pub date: String,
 /// }
-fn deser_doc_id<B: BufRead>(rdr: &mut quick_xml::Reader<B>, doc_id: &mut DocumentId) -> Result<(), Error> {
+///
+/// call before you hit doc-id tag
+fn deser_doc_id<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>, doc_id: &mut DocumentId) -> Result<(), Error> {
+    match rdr.read_event(buf) {
+        Ok(Event::Start(ref e)) => {
+            match e.name() {
+                b"document-id" => {
+                    loop {
+                        match rdr.read_event(buf) {
+                            Ok(Event::Start(ref e)) => {
+                                match e.name() {
+                                    b"country" => doc_id.country = deser_text(e.name(), rdr,)?,
+                                    b"doc-number" => doc_id.doc_number = deser_text(e.name(), rdr,)?,
+                                    b"kind" => doc_id.kind = Some(deser_text(e.name(), rdr,)?),
+                                    b"date" => doc_id.date = deser_text(e.name(), rdr,)?,
+                                    _ => return Err(Error::Deser { src: "unrecognized doc-id element".to_string() }),
+                                }
+                            },
+                            Ok(Event::End(ref e)) => {
+                                if e.name() == b"document-id" { break };
+                            },
+                            _ => break,
+                        }
+                    }
+                },
+                _ => return Err(Error::Deser { src: "found element besides doc-id".to_string() }),
+            }
+        },
+        Ok(_) => return Err(Error::Deser { src: "found non-start-element besides doc-id".to_string() }),
+
+        Err(err) => return Err(Error::Deser { src: err.to_string() }),
+    }
+
     Ok(())
 }
 
 fn deser_text<B: BufRead, K: AsRef<[u8]>>(end: K, rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
-        match rdr.read_text(end, &mut Vec::new()) {
-            Ok(txt) => Ok(txt),
-            Err(err) => Err(Error::Deser { src: err.to_string() }),
-        }
+    match rdr.read_text(end, &mut Vec::new()) {
+        Ok(txt) => Ok(txt),
+        Err(err) => Err(Error::Deser { src: err.to_string() }),
+    }
 }
 
