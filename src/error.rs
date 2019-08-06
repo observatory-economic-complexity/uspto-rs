@@ -1,3 +1,6 @@
+// TODO define errors per module? Check with https://github.com/shepmaster/snafu/issues/28 on
+// thoughts about pub visibility for errors.
+
 use snafu::Snafu;
 
 #[derive(Debug, Snafu)]
