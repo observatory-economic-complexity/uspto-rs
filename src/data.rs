@@ -62,7 +62,9 @@ pub struct ClassificationLocarno {
 #[derive(Debug, Default)]
 pub struct ClassificationNational {
     pub country: String,
+    pub additional_info: String,
     pub main_classification: String,
+    pub further_classification: Option<String>,
 }
 
 #[derive(Debug, Default)]

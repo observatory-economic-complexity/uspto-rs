@@ -28,7 +28,7 @@ macro_rules! parse_struct_update {
                                     match e.name() {
                                         $($xml_field => $data_struct.$data_struct_field = deser_text(e.name(), $rdr,)?,)+
                                         $($xml_field_opt => $data_struct.$data_struct_field_opt = Some(deser_text(e.name(), $rdr,)?),)*
-                                        _ => return Err(Error::Deser { src: format!("unrecognized {} element", $xml_element) }),
+                                        _ => return Err(Error::Deser { src: format!("unrecognized element {:?} in {}", std::str::from_utf8(e.name()), $xml_element) }),
                                     }
                                 },
                                 Ok(Event::End(ref e)) => {
@@ -65,7 +65,7 @@ macro_rules! parse_struct_update_from {
                     match e.name() {
                         $($xml_field => $data_struct.$data_struct_field = deser_text(e.name(), $rdr,)?,)+
                         $($xml_field_opt => $data_struct.$data_struct_field_opt = Some(deser_text(e.name(), $rdr,)?),)*
-                        _ => return Err(Error::Deser { src: format!("unrecognized {} element", $xml_element) }),
+                        _ => return Err(Error::Deser { src: format!("unrecognized element {:?} in {}", std::str::from_utf8(e.name()), $xml_element) }),
                     }
                 },
                 Ok(Event::End(ref e)) => {

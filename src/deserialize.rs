@@ -252,6 +252,9 @@ fn deser_biblio<B: BufRead>(
                     b"classification-locarno" => {
                         deser_class_locarno(rdr, buf, &mut biblio.classification_locarno)?;
                     },
+                    b"classification-national" => {
+                        deser_class_national(rdr, buf, &mut biblio.classification_national)?;
+                    },
                     // TODO when all elements in, use this line instead
                     //_ => break,
                     _ => continue,
@@ -322,6 +325,36 @@ fn deser_class_locarno<B: BufRead>(
         },
         // Optional
         {}
+    );
+
+    Ok(())
+}
+
+/// pub struct ClassificationNational {
+///     pub country: String,
+///     pub main_classification: String,
+/// }
+fn deser_class_national<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    class_national: &mut ClassificationNational
+    ) -> Result<(), Error>
+{
+    parse_struct_update_from!(
+        rdr,
+        buf,
+        "classification-national",
+        class_national,
+        // Required
+        {
+            b"country" => country,
+            b"additional-info" => additional_info,
+            b"main-classification" => main_classification,
+        },
+        // Optional
+        {
+            b"further-classification" => further_classification,
+        }
     );
 
     Ok(())
