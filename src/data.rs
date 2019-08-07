@@ -33,6 +33,7 @@ pub struct BibliographicDataGrant {
     pub invention_title: String,
 //    pub us_references_cited: Vec<UsCitation>,
     pub number_of_claims: String,
+    pub us_exemplary_claim: String,
     pub us_field_of_classification_search: UsFieldOfClassificationSearch,
 
     // ==================

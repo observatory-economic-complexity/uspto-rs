@@ -265,6 +265,12 @@ fn deser_biblio<B: BufRead>(
                     b"invention-title" => {
                         biblio.invention_title = deser_text_from(e.name(), rdr)?;
                     },
+                    b"number-of-claims" => {
+                        biblio.number_of_claims = deser_text_from(e.name(), rdr)?;
+                    },
+                    b"us-exemplary-claim" => {
+                        biblio.us_exemplary_claim = deser_text_from(e.name(), rdr)?;
+                    },
                     // TODO when all elements in, use this line instead
                     //_ => break,
                     _ => continue,
