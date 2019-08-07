@@ -29,7 +29,8 @@ pub struct BibliographicDataGrant {
     pub us_term_of_grant: String,
     pub classification_locarno: ClassificationLocarno,
     pub classification_national: ClassificationNational,
-    pub invention_title: InventionTitle,
+    // TODO: handle ID
+    pub invention_title: String,
 //    pub us_references_cited: Vec<UsCitation>,
     pub number_of_claims: String,
     pub us_field_of_classification_search: UsFieldOfClassificationSearch,
@@ -67,11 +68,11 @@ pub struct ClassificationNational {
     pub further_classification: Option<String>,
 }
 
-#[derive(Debug, Default)]
-pub struct InventionTitle {
-    pub id: String,
-    pub title: String,
-}
+//#[derive(Debug, Default)]
+//pub struct InventionTitle {
+//    pub id: String,
+//    pub title: String,
+//}
 
 #[derive(Debug, Default)]
 pub struct UsFieldOfClassificationSearch {

@@ -262,6 +262,9 @@ fn deser_biblio<B: BufRead>(
                     b"classification-national" => {
                         deser_class_national(rdr, buf, &mut biblio.classification_national)?;
                     },
+                    b"invention-title" => {
+                        biblio.invention_title = deser_text_from(e.name(), rdr)?;
+                    },
                     // TODO when all elements in, use this line instead
                     //_ => break,
                     _ => continue,
