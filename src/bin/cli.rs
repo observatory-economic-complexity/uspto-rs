@@ -32,7 +32,8 @@ fn run() -> Result<(), Error> {
         match patent_res {
             Ok(patent) => {
 
-                println!("{:#?}", patent.us_bibliographic_data_grant.us_application_series_code);
+                println!("{:#?}", patent.us_bibliographic_data_grant.us_term_of_grant);
+                //println!("{:#?}", patent.us_bibliographic_data_grant.us_application_series_code);
                 //println!("{:#?}", patent.us_bibliographic_data_grant.classification_national);
                 //println!("{:#?}", patent.us_bibliographic_data_grant.classification_locarno);
                 //println!("{:#?}", patent.us_bibliographic_data_grant.application_reference);

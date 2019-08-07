@@ -25,6 +25,7 @@ pub struct BibliographicDataGrant {
     pub publication_reference: DocumentId,
     pub application_reference: DocumentId,
     pub us_application_series_code: String,
+    // TODO: handle disclaimer
     pub us_term_of_grant: String,
     pub classification_locarno: ClassificationLocarno,
     pub classification_national: ClassificationNational,

@@ -8,6 +8,7 @@ use crate::error::Error;
 use crate::error::Deser;
 // helper macros
 use crate::{try_some, parse_struct_update, parse_struct_update_from};
+use crate::util::consume_start;
 
 pub struct PatentGrants<B: BufRead> {
     rdr: quick_xml::Reader<B>,
@@ -57,7 +58,7 @@ impl<B: BufRead> PatentGrants<B> {
                 Ok(Event::Start(ref e)) => {
                     match e.name() {
                         b"us-claim-statement" => {
-                            patent_grant.us_claim_statement = try_some!(deser_text(e.name(), &mut self.rdr));
+                            patent_grant.us_claim_statement = try_some!(deser_text_from(e.name(), &mut self.rdr));
                         },
                         b"claims" => {
                             try_some!(deser_claims(&mut self.rdr, &mut self.buf, &mut patent_grant));
@@ -212,7 +213,7 @@ fn deser_claims<B: BufRead>(
                     match rdr.read_event(buf) {
                         Ok(Event::Start(ref e)) => {
                             if e.name() == b"claim-text" {
-                                patent_grant.claims.push(deser_text(e.name(), rdr)?);
+                                patent_grant.claims.push(deser_text_from(e.name(), rdr)?);
                             } else {
                                 break;
                             }
@@ -250,7 +251,10 @@ fn deser_biblio<B: BufRead>(
                         deser_doc_id(rdr, buf, &mut biblio.application_reference)?;
                     },
                     b"us-application-series-code" => {
-                        biblio.us_application_series_code = deser_text(e.name(), rdr)?;
+                        biblio.us_application_series_code = deser_text_from(e.name(), rdr)?;
+                    },
+                    b"us-term-of-grant" => {
+                        biblio.us_term_of_grant = deser_text(b"length-of-grant", rdr)?;
                     },
                     b"classification-locarno" => {
                         deser_class_locarno(rdr, buf, &mut biblio.classification_locarno)?;
@@ -363,8 +367,23 @@ fn deser_class_national<B: BufRead>(
     Ok(())
 }
 
-fn deser_text<B: BufRead, K: AsRef<[u8]>>(end: K, rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
+/// call when the start tag has already been consumed, now you need the text to the end tag
+fn deser_text_from<B: BufRead, K: AsRef<[u8]>>(end: K, rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
     match rdr.read_text(end, &mut Vec::new()) {
+        Ok(txt) => Ok(txt),
+        Err(err) => Err(Error::Deser { src: err.to_string() }),
+    }
+}
+
+/// call when the start tag has already been consumed, now you need the text to the end tag
+fn deser_text<B: BufRead>(name: &[u8], rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
+    let mut buf = Vec::new();
+
+    consume_start(rdr, &mut buf, name)?;
+
+    buf.clear();
+
+    match rdr.read_text(name, &mut buf) {
         Ok(txt) => Ok(txt),
         Err(err) => Err(Error::Deser { src: err.to_string() }),
     }
