@@ -271,6 +271,10 @@ fn deser_biblio<B: BufRead>(
                     b"us-exemplary-claim" => {
                         biblio.us_exemplary_claim = deser_text_from(e.name(), rdr)?;
                     },
+                    b"us-field-of-classification-search" => {
+                        deser_field_class_search(rdr, buf, &mut biblio.us_field_of_classification_search)?;
+                    },
+
                     // TODO when all elements in, use this line instead
                     //_ => break,
                     _ => continue,
@@ -326,7 +330,7 @@ fn deser_doc_id<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>, d
 fn deser_class_locarno<B: BufRead>(
     rdr: &mut quick_xml::Reader<B>,
     buf: &mut Vec<u8>,
-    class_locarno: &mut ClassificationLocarno
+    class_locarno: &mut ClassificationLocarno,
     ) -> Result<(), Error>
 {
     parse_struct_update_from!(
@@ -353,7 +357,7 @@ fn deser_class_locarno<B: BufRead>(
 fn deser_class_national<B: BufRead>(
     rdr: &mut quick_xml::Reader<B>,
     buf: &mut Vec<u8>,
-    class_national: &mut ClassificationNational
+    class_national: &mut ClassificationNational,
     ) -> Result<(), Error>
 {
     parse_struct_update_from!(
@@ -372,6 +376,65 @@ fn deser_class_national<B: BufRead>(
             b"further-classification" => further_classification,
         }
     );
+
+    Ok(())
+}
+
+/// pub struct UsFieldOfClassificationSearch {
+///     pub classification_nationals: Vec<ClassificationNational>,
+///     pub classification_cpc_text: Vec<String>,
+/// }
+fn deser_field_class_search<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    field_class_search: &mut UsFieldOfClassificationSearch,
+    ) -> Result<(), Error>
+{
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                match e.name() {
+                    b"classification-national" => {
+                        let mut class_national = ClassificationNational::default();
+
+                        parse_struct_update_from!(
+                            rdr,
+                            buf,
+                            "classification-national",
+                            class_national,
+                            // Required
+                            {
+                                b"country" => country,
+                                b"additional-info" => additional_info,
+                                b"main-classification" => main_classification,
+                            },
+                            // Optional
+                            {
+                                b"further-classification" => further_classification,
+                            }
+                        );
+                        field_class_search.classification_nationals.push(class_national);
+                    },
+                    b"classification-cpc-text" => {
+                        field_class_search.classification_cpc_texts.push(
+                            deser_text_from(e.name(), rdr)?
+                        );
+                    },
+                    _ => return Err(Error::Deser { src: format!("found element {:?}, not classification-national", std::str::from_utf8(e.name())) }),
+                }
+            },
+            Ok(Event::End(e)) => {
+                if e.name() == "us-field-of-classification-search".as_bytes() {
+                    break;
+                } else {
+                    continue;
+                }
+            },
+            Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides classification-national") }),
+
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        }
+    }
 
     Ok(())
 }

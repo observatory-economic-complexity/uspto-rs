@@ -78,8 +78,7 @@ pub struct ClassificationNational {
 #[derive(Debug, Default)]
 pub struct UsFieldOfClassificationSearch {
     pub classification_nationals: Vec<ClassificationNational>,
-
-    pub classification_cpc_text: Vec<String>,
+    pub classification_cpc_texts: Vec<String>,
 }
 
 #[derive(Debug)]
