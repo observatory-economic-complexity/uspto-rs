@@ -28,7 +28,6 @@ pub struct BibliographicDataGrant {
     pub us_term_of_grant: String,
     pub classification_locarno: ClassificationLocarno,
     pub classification_national: ClassificationNational,
-    //pub classification_cpc_ext: ClassificationCpcText,
     pub invention_title: InventionTitle,
 //    pub us_references_cited: Vec<UsCitation>,
     pub number_of_claims: String,

@@ -249,6 +249,9 @@ fn deser_biblio<B: BufRead>(
                     b"application-reference" => {
                         deser_doc_id(rdr, buf, &mut biblio.application_reference)?;
                     },
+                    b"us-application-series-code" => {
+                        biblio.us_application_series_code = deser_text(e.name(), rdr)?;
+                    },
                     b"classification-locarno" => {
                         deser_class_locarno(rdr, buf, &mut biblio.classification_locarno)?;
                     },
