@@ -277,34 +277,22 @@ fn deser_biblio<B: BufRead>(
 ///
 /// call before you hit doc-id tag
 fn deser_doc_id<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>, doc_id: &mut DocumentId) -> Result<(), Error> {
-    match rdr.read_event(buf) {
-        Ok(Event::Start(ref e)) => {
-            match e.name() {
-                b"document-id" => {
-                    parse_struct_update!(
-                        rdr,
-                        buf,
-                        "document-id",
-                        doc_id,
-                        // Required
-                        {
-                            b"country" => country,
-                            b"doc-number" => doc_number,
-                            b"date" => date,
-                        },
-                        // Option
-                        {
-                            b"kind" => kind,
-                        }
-                    );
-                },
-                _ => return Err(Error::Deser { src: "found element besides doc-id".to_string() }),
-            }
+    parse_struct_update!(
+        rdr,
+        buf,
+        "document-id",
+        doc_id,
+        // Required
+        {
+            b"country" => country,
+            b"doc-number" => doc_number,
+            b"date" => date,
         },
-        Ok(_) => return Err(Error::Deser { src: "found non-start-element besides doc-id".to_string() }),
-
-        Err(err) => return Err(Error::Deser { src: err.to_string() }),
-    }
+        // Option
+        {
+            b"kind" => kind,
+        }
+    );
 
     Ok(())
 }
