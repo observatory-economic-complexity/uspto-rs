@@ -31,8 +31,10 @@ fn run() -> Result<(), Error> {
     for patent_res in patents.take(10) {
         match patent_res {
             Ok(patent) => {
-                println!("{:#?}", patent.us_bibliographic_data_grant.application_reference);
-                println!("{:#?}", patent.us_bibliographic_data_grant.publication_reference);
+
+                println!("{:#?}", patent.us_bibliographic_data_grant.classification_locarno);
+                //println!("{:#?}", patent.us_bibliographic_data_grant.application_reference);
+                //println!("{:#?}", patent.us_bibliographic_data_grant.publication_reference);
                 //println!("{:#?}", patent.descriptions);
                 //println!("{:#?}", patent.us_claim_statement);
                 //println!("{:#?}", patent.claims);

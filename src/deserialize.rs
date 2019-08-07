@@ -7,7 +7,7 @@ use crate::data::*;
 use crate::error::Error;
 use crate::error::Deser;
 // helper macros
-use crate::{try_some, parse_struct_update};
+use crate::{try_some, parse_struct_update, parse_struct_update_from};
 
 pub struct PatentGrants<B: BufRead> {
     rdr: quick_xml::Reader<B>,
@@ -249,12 +249,17 @@ fn deser_biblio<B: BufRead>(
                     b"application-reference" => {
                         deser_doc_id(rdr, buf, &mut biblio.application_reference)?;
                     },
-                    _ => break,
+                    b"classification-locarno" => {
+                        deser_class_locarno(rdr, buf, &mut biblio.classification_locarno)?;
+                    },
+                    // TODO when all elements in, use this line instead
+                    //_ => break,
+                    _ => continue,
                 }
             },
             Ok(Event::End(ref e)) => {
-                if e.name() == b"us-bibliographic-grant-data" {
-                break;
+                if e.name() == b"us-bibliographic-data-grant" {
+                    break;
                 }
             },
             // TODO when all elements in, use this line instead
@@ -274,8 +279,6 @@ fn deser_biblio<B: BufRead>(
 ///     pub kind: Option<String>,
 ///     pub date: String,
 /// }
-///
-/// call before you hit doc-id tag
 fn deser_doc_id<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>, doc_id: &mut DocumentId) -> Result<(), Error> {
     parse_struct_update!(
         rdr,
@@ -292,6 +295,33 @@ fn deser_doc_id<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>, d
         {
             b"kind" => kind,
         }
+    );
+
+    Ok(())
+}
+
+/// pub struct ClassificationLocarno {
+///     pub edition: String,
+///     pub main_classification: String,
+/// }
+fn deser_class_locarno<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    class_locarno: &mut ClassificationLocarno
+    ) -> Result<(), Error>
+{
+    parse_struct_update_from!(
+        rdr,
+        buf,
+        "classification-locarno",
+        class_locarno,
+        // Required
+        {
+            b"edition" => edition,
+            b"main-classification" => main_classification,
+        },
+        // Optional
+        {}
     );
 
     Ok(())
