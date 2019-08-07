@@ -8,3 +8,31 @@ macro_rules! try_some {
     )
 }
 
+//advance_to_element
+//parse_struct_fields_update
+#[macro_export]
+macro_rules! parse_struct_update {
+    ($rdr:expr,
+     $buf:expr,
+     $xml_element:expr,
+     $data_struct:ident,
+     {$($xml_field:expr => $data_struct_field:ident),* $(,)?},
+     {$($xml_field_opt:expr => $data_struct_field_opt:ident),* $(,)?}
+     ) => (
+        loop {
+            match $rdr.read_event($buf) {
+                Ok(Event::Start(ref e)) => {
+                    match e.name() {
+                        $($xml_field => $data_struct.$data_struct_field = deser_text(e.name(), $rdr,)?,)+
+                        $($xml_field_opt => $data_struct.$data_struct_field_opt = Some(deser_text(e.name(), $rdr,)?),)+
+                        _ => return Err(Error::Deser { src: format!("unrecognized {} element", $xml_element) }),
+                    }
+                },
+                Ok(Event::End(ref e)) => {
+                    if e.name() == $xml_element.as_bytes() { break };
+                },
+                _ => break,
+            }
+        }
+    )
+}

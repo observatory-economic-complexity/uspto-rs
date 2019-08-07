@@ -6,7 +6,8 @@ use std::io::BufRead;
 use crate::data::*;
 use crate::error::Error;
 use crate::error::Deser;
-use crate::try_some;
+// helper macros
+use crate::{try_some, parse_struct_update};
 
 pub struct PatentGrants<B: BufRead> {
     rdr: quick_xml::Reader<B>,
@@ -280,23 +281,22 @@ fn deser_doc_id<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>, d
         Ok(Event::Start(ref e)) => {
             match e.name() {
                 b"document-id" => {
-                    loop {
-                        match rdr.read_event(buf) {
-                            Ok(Event::Start(ref e)) => {
-                                match e.name() {
-                                    b"country" => doc_id.country = deser_text(e.name(), rdr,)?,
-                                    b"doc-number" => doc_id.doc_number = deser_text(e.name(), rdr,)?,
-                                    b"kind" => doc_id.kind = Some(deser_text(e.name(), rdr,)?),
-                                    b"date" => doc_id.date = deser_text(e.name(), rdr,)?,
-                                    _ => return Err(Error::Deser { src: "unrecognized doc-id element".to_string() }),
-                                }
-                            },
-                            Ok(Event::End(ref e)) => {
-                                if e.name() == b"document-id" { break };
-                            },
-                            _ => break,
+                    parse_struct_update!(
+                        rdr,
+                        buf,
+                        "document-id",
+                        doc_id,
+                        // Required
+                        {
+                            b"country" => country,
+                            b"doc-number" => doc_number,
+                            b"date" => date,
+                        },
+                        // Option
+                        {
+                            b"kind" => kind,
                         }
-                    }
+                    );
                 },
                 _ => return Err(Error::Deser { src: "found element besides doc-id".to_string() }),
             }
