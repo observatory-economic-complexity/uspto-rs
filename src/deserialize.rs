@@ -277,6 +277,9 @@ fn deser_biblio<B: BufRead>(
                     b"us-applicants" => {
                         deser_us_applicants(rdr, buf, &mut biblio.us_applicants)?;
                     },
+                    b"inventors" => {
+                        deser_us_inventors(rdr, buf, &mut biblio.inventors)?;
+                    },
 
                     // TODO when all elements in, use this line instead
                     //_ => break,
@@ -504,6 +507,64 @@ fn deser_us_applicants<B: BufRead>(
                 }
             },
             Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides us-applicants") }),
+
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        }
+    }
+
+    Ok(())
+}
+
+/// pub struct Inventor . {
+///    pub sequence: String,
+///    pub designation: String,
+///    pub addressbook: AddressBook,
+/// }
+///
+/// Deserializes a Vec of Inventor
+///
+/// called after tag us-applicants is already hit
+fn deser_us_inventors<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    inventors: &mut Vec<Inventor>,
+    ) -> Result<(), Error>
+{
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                match e.name() {
+                    b"inventor" => {
+                        let mut inventor = Inventor::default();
+
+                        // first update attributes
+                        for attr_res in e.attributes() {
+                            let attr = attr_res
+                                .map_err(|err| Error::Deser { src: err.to_string() })?;
+
+                            match attr.key {
+                                b"sequence" => inventor.sequence = attr.unescape_and_decode_value(rdr).expect("never fail utf8?"),
+                                b"designation" => inventor.designation = attr.unescape_and_decode_value(rdr).expect("never fail utf8?"),
+                                _ => return Err(Error::Deser { src: format!("unrecognized element {:?} in inventor", std::str::from_utf8(e.name())) }),
+                            }
+                        }
+
+                        // now parse and update the addressbook
+                        deser_addressbook(rdr, buf, &mut inventor.addressbook)?;
+
+                        inventors.push(inventor);
+                    },
+                    _ => return Err(Error::Deser { src: format!("found element {:?}, not inventor", std::str::from_utf8(e.name())) }),
+                }
+            },
+            Ok(Event::End(e)) => {
+                if e.name() == "inventor".as_bytes() {
+                    break;
+                } else {
+                    continue;
+                }
+            },
+            Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides inventors") }),
 
             Err(err) => return Err(Error::Deser { src: err.to_string() }),
         }

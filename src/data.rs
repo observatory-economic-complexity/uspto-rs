@@ -107,7 +107,7 @@ pub struct Address {
     pub country: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Inventor {
     pub sequence: String,
     pub designation: String,
