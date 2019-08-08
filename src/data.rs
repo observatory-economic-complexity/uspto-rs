@@ -81,24 +81,27 @@ pub struct UsFieldOfClassificationSearch {
     pub classification_cpc_texts: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct UsApplicant {
     pub sequence: String,
     pub app_type: String,
     pub designation: String,
-    pub applicant_authority_category: String,
+    pub applicant_authority_category: Option<String>,
     pub addressbook: AddressBook,
     pub residence: String, // Country
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AddressBook {
     pub orgname: Option<String>,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
     pub role: Option<String>,
+    pub address: Address,
+}
 
-    // Address
+#[derive(Debug, Default)]
+pub struct Address {
     pub city: Option<String>,
     pub state: Option<String>,
     pub country: Option<String>,

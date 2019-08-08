@@ -31,7 +31,7 @@ macro_rules! parse_struct_update {
                             match $rdr.read_event($buf) {
                                 Ok(Event::Start(ref e)) => {
                                     match e.name() {
-                                        $($xml_field => $data_struct.$data_struct_field = deser_text_from(e.name(), $rdr,)?,)+
+                                        $($xml_field => $data_struct.$data_struct_field = deser_text_from(e.name(), $rdr,)?,)*
                                         $($xml_field_opt => $data_struct.$data_struct_field_opt = Some(deser_text_from(e.name(), $rdr,)?),)*
                                         _ => return Err(Error::Deser { src: format!("unrecognized element {:?} in {}", std::str::from_utf8(e.name()), $xml_element) }),
                                     }
@@ -46,7 +46,7 @@ macro_rules! parse_struct_update {
                     _ => return Err(Error::Deser { src: format!("found element {:?}, not {}", std::str::from_utf8(e.name()), $xml_element) }),
                 }
             },
-            Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides {}", $xml_element) }),
+            Ok(e) => return Err(Error::Deser { src: format!("found non-start-element {:?} besides {}", e, $xml_element) }),
 
             Err(err) => return Err(Error::Deser { src: err.to_string() }),
         }
@@ -68,7 +68,7 @@ macro_rules! parse_struct_update_from {
             match $rdr.read_event($buf) {
                 Ok(Event::Start(ref e)) => {
                     match e.name() {
-                        $($xml_field => $data_struct.$data_struct_field = deser_text_from(e.name(), $rdr,)?,)+
+                        $($xml_field => $data_struct.$data_struct_field = deser_text_from(e.name(), $rdr,)?,)*
                         $($xml_field_opt => $data_struct.$data_struct_field_opt = Some(deser_text_from(e.name(), $rdr,)?),)*
                         _ => return Err(Error::Deser { src: format!("unrecognized element {:?} in {}", std::str::from_utf8(e.name()), $xml_element) }),
                     }
@@ -97,7 +97,7 @@ pub fn consume_start<B: BufRead>(
                 Err(Error::Deser { src: format!("found element {:?}, not {:?}", std::str::from_utf8(e.name()), std::str::from_utf8(xml_element)) })
             }
         },
-        Ok(_) => Err(Error::Deser { src: format!("found non-start-element besides {:?}", std::str::from_utf8(xml_element)) }),
+        Ok(e) => Err(Error::Deser { src: format!("found non-start-element {:?} besides {:?}", e, std::str::from_utf8(xml_element)) }),
         Err(err) => Err(Error::Deser { src: err.to_string() }),
     }
 }

@@ -274,6 +274,9 @@ fn deser_biblio<B: BufRead>(
                     b"us-field-of-classification-search" => {
                         deser_field_class_search(rdr, buf, &mut biblio.us_field_of_classification_search)?;
                     },
+                    b"us-applicants" => {
+                        deser_us_applicants(rdr, buf, &mut biblio.us_applicants)?;
+                    },
 
                     // TODO when all elements in, use this line instead
                     //_ => break,
@@ -431,6 +434,139 @@ fn deser_field_class_search<B: BufRead>(
                 }
             },
             Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides classification-national") }),
+
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        }
+    }
+
+    Ok(())
+}
+
+/// pub struct UsApplicant {
+///    pub sequence: String,
+///    pub app_type: String,
+///    pub designation: String,
+///    pub applicant_authority_category: String,
+///    pub addressbook: AddressBook,
+///    pub residence: String, // Country
+/// }
+///
+/// Deserializes a Vec of Applicant
+///
+/// called after tag us-applicants is already hit
+fn deser_us_applicants<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    applicants: &mut Vec<UsApplicant>,
+    ) -> Result<(), Error>
+{
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                match e.name() {
+                    b"us-applicant" => {
+                        let mut applicant = UsApplicant::default();
+
+                        // first update attributes
+                        for attr_res in e.attributes() {
+                            let attr = attr_res
+                                .map_err(|err| Error::Deser { src: err.to_string() })?;
+
+                            match attr.key {
+                                b"sequence" => applicant.sequence = attr.unescape_and_decode_value(rdr).expect("never fail utf8?"),
+                                b"app-type" => applicant.app_type = attr.unescape_and_decode_value(rdr).expect("never fail utf8?"),
+                                b"designation" => applicant.designation = attr.unescape_and_decode_value(rdr).expect("never fail utf8?"),
+                                b"applicant-authority-category" => applicant.applicant_authority_category = Some(attr.unescape_and_decode_value(rdr).expect("never fail utf8?")),
+                                _ => return Err(Error::Deser { src: format!("unrecognized element {:?} in us-applicant", std::str::from_utf8(e.name())) }),
+                            }
+                        }
+
+                        // now parse and update the addressbook
+                        deser_addressbook(rdr, buf, &mut applicant.addressbook)?;
+
+                        // TODO this is done in order for now; if need to do out of order w/
+                        // addressbook, create a loop and match
+                        applicant.residence = {
+                            consume_start(rdr, buf, b"residence")?;
+                            deser_text(b"country", rdr)?
+                        };
+
+                        applicants.push(applicant);
+                    },
+                    _ => return Err(Error::Deser { src: format!("found element {:?}, not us-applicant", std::str::from_utf8(e.name())) }),
+                }
+            },
+            Ok(Event::End(e)) => {
+                if e.name() == "us-applicants".as_bytes() {
+                    break;
+                } else {
+                    continue;
+                }
+            },
+            Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides us-applicants") }),
+
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        }
+    }
+
+    Ok(())
+}
+
+/// #[derive(Debug)]
+/// pub struct AddressBook {
+///     pub orgname: Option<String>,
+///     pub first_name: Option<String>,
+///     pub last_name: Option<String>,
+///     pub role: Option<String>,
+/// 
+///     // Address
+///     pub city: Option<String>,
+///     pub state: Option<String>,
+///     pub country: Option<String>,
+/// }
+///
+/// called before addressbook tag consumed
+fn deser_addressbook<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>, addressbook: &mut AddressBook) -> Result<(), Error> {
+    consume_start(rdr, buf, b"addressbook")?;
+
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                match e.name() {
+                    b"orgname" => addressbook.orgname = Some(deser_text_from(e.name(), rdr)?),
+                    b"first-name" => addressbook.first_name = Some(deser_text_from(e.name(), rdr)?),
+                    b"last-name" => addressbook.last_name = Some(deser_text_from(e.name(), rdr)?),
+                    b"role" => addressbook.role = Some(deser_text_from(e.name(), rdr)?),
+                    b"address" => {
+                        let address = &mut addressbook.address;
+
+                        parse_struct_update_from!(
+                            rdr,
+                            buf,
+                            "address",
+                            address,
+                            // Required
+                            {
+                            },
+                            // Optional
+                            {
+                                b"city" => city,
+                                b"state" => state,
+                                b"country" => country,
+                            }
+                        );
+                    }
+                    _ => return Err(Error::Deser { src: format!("unrecognized element {:?} in addressbook", std::str::from_utf8(e.name())) }),
+                }
+            },
+            Ok(Event::End(e)) => {
+                if e.name() == "addressbook".as_bytes() {
+                    break;
+                } else {
+                    continue;
+                }
+            },
+            Ok(e) => return Err(Error::Deser { src: format!("found non-start-element {:?} besides addressbook", e) }),
 
             Err(err) => return Err(Error::Deser { src: err.to_string() }),
         }
