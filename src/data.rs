@@ -121,7 +121,7 @@ pub struct Agent {
     pub addressbook: AddressBook,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Assignee {
     pub addressbook: AddressBook,
 }

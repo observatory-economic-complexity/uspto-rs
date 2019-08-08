@@ -283,6 +283,9 @@ fn deser_biblio<B: BufRead>(
                     b"agents" => {
                         deser_agents(rdr, buf, &mut biblio.agents)?;
                     },
+                    b"assignees" => {
+                        deser_assignees(rdr, buf, &mut biblio.assignees)?;
+                    },
 
                     // TODO when all elements in, use this line instead
                     //_ => break,
@@ -627,6 +630,51 @@ fn deser_agents<B: BufRead>(
                 }
             },
             Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides agents") }),
+
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        }
+    }
+
+    Ok(())
+}
+
+// TODO: refactor Agent, Inventor, UsApplicant into one deser method with params?
+/// pub struct Assignee {
+///    pub addressbook: AddressBook,
+/// }
+///
+/// Deserializes a Vec of Assignee
+///
+/// called after tag assignees is already hit
+fn deser_assignees<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    assignees: &mut Vec<Assignee>,
+    ) -> Result<(), Error>
+{
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                match e.name() {
+                    b"assignee" => {
+                        let mut assignee = Assignee::default();
+
+                        // now parse and update the addressbook
+                        deser_addressbook(rdr, buf, &mut assignee.addressbook)?;
+
+                        assignees.push(assignee);
+                    },
+                    _ => return Err(Error::Deser { src: format!("found element {:?}, not assignee", std::str::from_utf8(e.name())) }),
+                }
+            },
+            Ok(Event::End(e)) => {
+                if e.name() == "assignee".as_bytes() {
+                    break;
+                } else {
+                    continue;
+                }
+            },
+            Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides assignees") }),
 
             Err(err) => return Err(Error::Deser { src: err.to_string() }),
         }
