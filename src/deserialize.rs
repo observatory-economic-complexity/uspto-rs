@@ -398,6 +398,7 @@ fn deser_class_national<B: BufRead>(
 /// pub struct UsFieldOfClassificationSearch {
 ///     pub classification_nationals: Vec<ClassificationNational>,
 ///     pub classification_cpc_text: Vec<String>,
+///     pub classification_cpc_combinationtext: Vec<String>,
 /// }
 fn deser_field_class_search<B: BufRead>(
     rdr: &mut quick_xml::Reader<B>,
@@ -435,7 +436,12 @@ fn deser_field_class_search<B: BufRead>(
                             deser_text_from(e.name(), rdr)?
                         );
                     },
-                    _ => return Err(Error::Deser { src: format!("found element {:?}, not classification-national", std::str::from_utf8(e.name())) }),
+                    b"classification-cpc-combination-text" => {
+                        field_class_search.classification_cpc_combination_texts.push(
+                            deser_text_from(e.name(), rdr)?
+                        );
+                    },
+                    _ => return Err(Error::Deser { src: format!("found element {:?}, not in us-field-of-classification-search", std::str::from_utf8(e.name())) }),
                 }
             },
             Ok(Event::End(e)) => {
@@ -643,6 +649,8 @@ fn deser_agents<B: BufRead>(
 
 // TODO: refactor Agent, Inventor, UsApplicant into one deser method with params?
 /// pub struct Assignee {
+///    pub orgname: Option<String>,
+///    pub role: Option<String>,
 ///    pub addressbook: AddressBook,
 /// }
 ///
