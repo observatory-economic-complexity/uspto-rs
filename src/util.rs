@@ -101,3 +101,18 @@ pub fn consume_start<B: BufRead>(
         Err(err) => Err(Error::Deser { src: err.to_string() }),
     }
 }
+
+// consumes a start tag, to just advance one deeper in nesting
+pub fn consume_any_end<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    ) -> Result<(), Error>
+{
+    match rdr.read_event(buf) {
+        Ok(Event::End(_)) => {
+            Ok(())
+        },
+        Ok(e) => Err(Error::Deser { src: format!("found non-end-element {:?} besides", e) }),
+        Err(err) => Err(Error::Deser { src: err.to_string() }),
+    }
+}

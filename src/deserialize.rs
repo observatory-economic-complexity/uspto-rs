@@ -8,7 +8,7 @@ use crate::error::Error;
 use crate::error::Deser;
 // helper macros
 use crate::{try_some, parse_struct_update, parse_struct_update_from};
-use crate::util::consume_start;
+use crate::util::{consume_start, consume_any_end};
 
 pub struct PatentGrants<B: BufRead> {
     rdr: quick_xml::Reader<B>,
@@ -263,7 +263,7 @@ fn deser_biblio<B: BufRead>(
                         deser_class_national(rdr, buf, &mut biblio.classification_national)?;
                     },
                     b"invention-title" => {
-                        biblio.invention_title = deser_text_from(e.name(), rdr)?;
+                        biblio.invention_title = deser_text_with_tags_from(e.name(), rdr)?;
                     },
                     b"number-of-claims" => {
                         biblio.number_of_claims = deser_text_from(e.name(), rdr)?;
@@ -878,7 +878,7 @@ fn deser_examiners<B: BufRead>(
 fn deser_text_from<B: BufRead, K: AsRef<[u8]>>(end: K, rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
     match rdr.read_text(end, &mut Vec::new()) {
         Ok(txt) => Ok(txt),
-        Err(err) => Err(Error::Deser { src: err.to_string() }),
+        Err(err) => Err(Error::Deser { src: format!("err: {}, position: {}", err, rdr.buffer_position()) }),
     }
 }
 
@@ -894,5 +894,38 @@ fn deser_text<B: BufRead>(name: &[u8], rdr: &mut quick_xml::Reader<B>) -> Result
         Ok(txt) => Ok(txt),
         Err(err) => Err(Error::Deser { src: err.to_string() }),
     }
+}
+
+/// call when the start tag has already been consumed, now you need the text to the end tag
+/// only deals with nested tags one level
+fn deser_text_with_tags_from<B: BufRead, K: AsRef<[u8]>>(end: K, rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
+    // TODO don't allocate a new vec at each try?
+
+//    loop {
+        match rdr.read_text(&end, &mut Vec::new()) {
+            Ok(txt) => Ok(txt),
+            Err(_) => {
+                println!("hitttt");
+                deser_text_from(&end, rdr)
+                // try one more time, to see if we can get past a tag at the beginning
+                // of the text
+                //match rdr.read_event(&mut Vec::new()) {
+                //    Ok(Event::Start(ref e)) => {
+                //        let tagged_txt = match rdr.read_text(e.name(), &mut Vec::new()) {
+                //            Ok(txt) => txt,
+                //            Err(err) => return Err(Error::Deser { src: format!("err: {}, position: {}", err, rdr.buffer_position()) }),
+                //        };
+
+                //        // now past tagged text, read to end tag
+                //        let txt = deser_text_from(end, rdr)?;
+                //        return Ok(tagged_txt + &txt);
+                //    },
+                //    Ok(_) => break,
+                //    Err(err) => return Err(Error::Deser { src: format!("err: {}, position: {}", err, rdr.buffer_position()) }),
+                //}
+            },
+        }
+ //   }
+    //Err(Error::Deser { src: format!("Could not deserialize string with embedded tags") })
 }
 
