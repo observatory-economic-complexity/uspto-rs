@@ -114,7 +114,7 @@ pub struct Inventor {
     pub addressbook: AddressBook,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Agent {
     pub sequence: String,
     pub rep_type: String,
