@@ -123,6 +123,8 @@ pub struct Agent {
 
 #[derive(Debug, Default)]
 pub struct Assignee {
+    pub orgname: Option<String>,
+    pub role: Option<String>,
     pub addressbook: AddressBook,
 }
 

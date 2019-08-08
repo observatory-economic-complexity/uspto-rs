@@ -662,9 +662,7 @@ fn deser_assignees<B: BufRead>(
                     b"assignee" => {
                         let mut assignee = Assignee::default();
 
-                        // now parse and update the addressbook
-                        deser_addressbook(rdr, buf, &mut assignee.addressbook)?;
-
+                        deser_assignee(rdr, buf, &mut assignee)?;
                         assignees.push(assignee);
                     },
                     _ => return Err(Error::Deser { src: format!("found element {:?}, not assignee", std::str::from_utf8(e.name())) }),
@@ -678,6 +676,47 @@ fn deser_assignees<B: BufRead>(
                 }
             },
             Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides assignees") }),
+
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        }
+    }
+
+    Ok(())
+}
+
+/// assignee
+fn deser_assignee<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    assignee: &mut Assignee,
+    ) -> Result<(), Error>
+{
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                match e.name() {
+                    b"orgname" => {
+                        let txt = deser_text_from(b"orgname", rdr)?;
+                        assignee.orgname = Some(txt);
+                    },
+                    b"role" => {
+                        let txt = deser_text_from(b"role", rdr)?;
+                        assignee.role = Some(txt);
+                    },
+                    b"addressbook" => {
+                        deser_addressbook_from(rdr, buf, &mut assignee.addressbook)?;
+                    },
+                    _ => return Err(Error::Deser { src: format!("found element {:?}, not in assignee", std::str::from_utf8(e.name())) }),
+                }
+            },
+            Ok(Event::End(e)) => {
+                if e.name() == "assignee".as_bytes() {
+                    break;
+                } else {
+                    continue;
+                }
+            },
+            Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides assignee") }),
 
             Err(err) => return Err(Error::Deser { src: err.to_string() }),
         }
@@ -702,7 +741,10 @@ fn deser_assignees<B: BufRead>(
 /// called before addressbook tag consumed
 fn deser_addressbook<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>, addressbook: &mut AddressBook) -> Result<(), Error> {
     consume_start(rdr, buf, b"addressbook")?;
+    deser_addressbook_from(rdr, buf, addressbook)
+}
 
+fn deser_addressbook_from<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u8>, addressbook: &mut AddressBook) -> Result<(), Error> {
     loop {
         match rdr.read_event(buf) {
             Ok(Event::Start(ref e)) => {
