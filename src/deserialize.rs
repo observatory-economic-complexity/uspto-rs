@@ -286,6 +286,9 @@ fn deser_biblio<B: BufRead>(
                     b"assignees" => {
                         deser_assignees(rdr, buf, &mut biblio.assignees)?;
                     },
+                    b"examiners" => {
+                        deser_examiners(rdr, buf, &mut biblio.examiners)?;
+                    },
 
                     // TODO when all elements in, use this line instead
                     //_ => break,
@@ -564,7 +567,7 @@ fn deser_inventors<B: BufRead>(
                 }
             },
             Ok(Event::End(e)) => {
-                if e.name() == "inventor".as_bytes() {
+                if e.name() == "inventors".as_bytes() {
                     break;
                 } else {
                     continue;
@@ -623,7 +626,7 @@ fn deser_agents<B: BufRead>(
                 }
             },
             Ok(Event::End(e)) => {
-                if e.name() == "agent".as_bytes() {
+                if e.name() == "agents".as_bytes() {
                     break;
                 } else {
                     continue;
@@ -668,7 +671,7 @@ fn deser_assignees<B: BufRead>(
                 }
             },
             Ok(Event::End(e)) => {
-                if e.name() == "assignee".as_bytes() {
+                if e.name() == "assignees".as_bytes() {
                     break;
                 } else {
                     continue;
@@ -738,6 +741,81 @@ fn deser_addressbook<B: BufRead>(rdr: &mut quick_xml::Reader<B>, buf: &mut Vec<u
                 }
             },
             Ok(e) => return Err(Error::Deser { src: format!("found non-start-element {:?} besides addressbook", e) }),
+
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        }
+    }
+
+    Ok(())
+}
+
+/// pub struct Examiners {
+///    pub primary_examiner: Examiner,
+/// }
+///
+/// pub struct Examiner {
+///    pub first_name: String,
+///    pub last_name: String,
+///    pub department: String,
+///
+/// }
+///
+/// called after tag examiners is already hit
+fn deser_examiners<B: BufRead>(
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    examiners: &mut Examiners,
+    ) -> Result<(), Error>
+{
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                match e.name() {
+                    b"primary-examiner" => {
+                        let primary_examiner = &mut examiners.primary_examiner;
+
+                        parse_struct_update_from!(
+                            rdr,
+                            buf,
+                            "primary-examiner",
+                            primary_examiner,
+                            {
+                                b"first-name" => first_name,
+                                b"last-name" => last_name,
+                            },
+                            {
+                                b"department" => department,
+                            }
+                        );
+                    },
+                    b"assistant-examiner" => {
+                        let assistant_examiner = &mut examiners.assistant_examiner;
+
+                        parse_struct_update_from!(
+                            rdr,
+                            buf,
+                            "assistant-examiner",
+                            assistant_examiner,
+                            {
+                                b"first-name" => first_name,
+                                b"last-name" => last_name,
+                            },
+                            {
+                                b"department" => department,
+                            }
+                        );
+                    },
+                    _ => return Err(Error::Deser { src: format!("found element {:?}, not expected in examiners", std::str::from_utf8(e.name())) }),
+                }
+            },
+            Ok(Event::End(e)) => {
+                if e.name() == "examiners".as_bytes() {
+                    break;
+                } else {
+                    continue;
+                }
+            },
+            Ok(_) => return Err(Error::Deser { src: format!("found non-start-element besides examiners") }),
 
             Err(err) => return Err(Error::Deser { src: err.to_string() }),
         }

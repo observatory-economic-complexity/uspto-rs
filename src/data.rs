@@ -129,14 +129,13 @@ pub struct Assignee {
 #[derive(Debug, Default)]
 pub struct Examiners {
     pub primary_examiner: Examiner,
-
-    // TODO are there other examiners?
+    pub assistant_examiner: Examiner,
 }
 
 #[derive(Debug, Default)]
 pub struct Examiner {
     pub first_name: String,
     pub last_name: String,
-    pub department: String,
+    pub department: Option<String>,
 }
 
