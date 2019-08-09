@@ -89,7 +89,7 @@ pub struct UsApplicant {
     pub designation: String,
     pub applicant_authority_category: Option<String>,
     pub addressbook: AddressBook,
-    pub residence: String, // Country
+    pub residence: Option<String>, // Country
 }
 
 #[derive(Debug, Default)]

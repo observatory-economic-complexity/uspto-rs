@@ -185,7 +185,7 @@ fn deser_claims<B: BufRead>(
                     match rdr.read_event(buf) {
                         Ok(Event::Start(ref e)) => {
                             if e.name() == b"claim-text" {
-                                patent_grant.claims.push(deser_text_from(e.name(), rdr)?);
+                                patent_grant.claims.push(deser_text_with_tags_from(e.name(), rdr)?);
                             } else {
                                 break;
                             }
@@ -226,8 +226,18 @@ fn deser_biblio<B: BufRead>(
                         biblio.us_application_series_code = deser_text_from(e.name(), rdr)?;
                     },
                     b"us-term-of-grant" => {
-                        skip_to_tag_within(b"length-of-grant", b"us-term-of-grant", rdr, buf)?;
-                        biblio.us_term_of_grant = deser_text_from(b"length-of-grant", rdr)?;
+                        let within = skip_to_tag_within(b"length-of-grant", b"us-term-of-grant", rdr, buf)?;
+                        if within {
+                            biblio.us_term_of_grant = deser_text_from(b"length-of-grant", rdr)?;
+                        }
+                    },
+                    b"classifications-ipcr" => {
+                        // TODO skip for now
+                        skip_to_tag_within(b"", b"classifications-ipcr", rdr, buf)?;
+                    },
+                    b"classifications-cpc" => {
+                        // TODO skip for now
+                        skip_to_tag_within(b"", b"classifications-cpc", rdr, buf)?;
                     },
                     b"classification-locarno" => {
                         deser_class_locarno(rdr, buf, &mut biblio.classification_locarno)?;
@@ -383,6 +393,10 @@ fn deser_field_class_search<B: BufRead>(
         match rdr.read_event(buf) {
             Ok(Event::Start(ref e)) => {
                 match e.name() {
+                    b"us-classifications-ipcr" => {
+                        // TODO skip for now
+                        skip_to_tag_within(b"", b"us-classifications-ipcr", rdr, buf)?;
+                    },
                     b"classification-national" => {
                         let mut class_national = ClassificationNational::default();
 
@@ -477,10 +491,9 @@ fn deser_us_applicants<B: BufRead>(
 
                         // TODO this is done in order for now; if need to do out of order w/
                         // addressbook, create a loop and match
-                        applicant.residence = {
-                            consume_start(rdr, buf, b"residence")?;
-                            deser_text(b"country", rdr)?
-                        };
+                        if skip_to_tag_within(b"residence", b"us-applicant", rdr, buf)? {
+                            applicant.residence = Some(deser_text(b"country", rdr)?);
+                        }
 
                         applicants.push(applicant);
                     },
