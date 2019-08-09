@@ -8,7 +8,7 @@ use crate::error::Error;
 use crate::error::Deser;
 // helper macros
 use crate::{try_some, parse_struct_update, parse_struct_update_from};
-use crate::util::{consume_start, consume_any_end};
+use crate::util::consume_start;
 
 pub struct PatentGrants<B: BufRead> {
     rdr: quick_xml::Reader<B>,
@@ -900,34 +900,29 @@ fn deser_text<B: BufRead>(name: &[u8], rdr: &mut quick_xml::Reader<B>) -> Result
 
 /// call when the start tag has already been consumed, now you need the text to the end tag
 /// only deals with nested tags one level
-fn deser_text_with_tags_from<B: BufRead, K: AsRef<[u8]>>(end: K, rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
-    // TODO don't allocate a new vec at each try?
+fn deser_text_with_tags_from<B: BufRead>(end: &[u8], rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
+    let mut frags: Vec<String> = Vec::new();
+    let mut buf = Vec::new();
 
-//    loop {
-        match rdr.read_text(&end, &mut Vec::new()) {
-            Ok(txt) => Ok(txt),
-            Err(_) => {
-                println!("hitttt");
-                deser_text_from(&end, rdr)
-                // try one more time, to see if we can get past a tag at the beginning
-                // of the text
-                //match rdr.read_event(&mut Vec::new()) {
-                //    Ok(Event::Start(ref e)) => {
-                //        let tagged_txt = match rdr.read_text(e.name(), &mut Vec::new()) {
-                //            Ok(txt) => txt,
-                //            Err(err) => return Err(Error::Deser { src: format!("err: {}, position: {}", err, rdr.buffer_position()) }),
-                //        };
-
-                //        // now past tagged text, read to end tag
-                //        let txt = deser_text_from(end, rdr)?;
-                //        return Ok(tagged_txt + &txt);
-                //    },
-                //    Ok(_) => break,
-                //    Err(err) => return Err(Error::Deser { src: format!("err: {}, position: {}", err, rdr.buffer_position()) }),
-                //}
+    loop {
+        match rdr.read_event(&mut buf) {
+            Ok(Event::Start(_)) => {},
+            Ok(Event::End(ref e)) => {
+                if &e.name() == &end {
+                    break;
+                }
             },
+            Ok(Event::Text(e)) => {
+                let frag = e.unescape_and_decode(rdr)
+                    .map_err(|err| Error::Deser { src: err.to_string() })?;
+
+                frags.push(frag);
+            },
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+            _ => {},
         }
- //   }
-    //Err(Error::Deser { src: format!("Could not deserialize string with embedded tags") })
+    }
+
+    Ok(frags.join(" "))
 }
 
