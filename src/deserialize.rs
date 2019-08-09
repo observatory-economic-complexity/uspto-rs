@@ -191,10 +191,12 @@ fn deser_top_pi<B: BufRead>(
 
         }
     }
-    let text = match String::from_utf8(text_buf.to_vec()) {
-        Ok(s) => s,
-        Err(err) => return Err(Error::Deser { src: err.to_string() }),
-    };
+
+    let text = rdr.decode(&BytesText::from_escaped(text_buf)
+        .unescaped()
+        .map_err(|err| Error::Deser { src: err.to_string() })?
+        ).to_string();
+
     patent_grant.descriptions.insert(pi_name.to_string(), text);
 
     Ok(())
