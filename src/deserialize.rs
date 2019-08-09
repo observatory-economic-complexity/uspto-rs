@@ -182,16 +182,18 @@ fn deser_claims<B: BufRead>(
         match rdr.read_event(buf) {
             Ok(Event::Start(ref e)) => {
                 if e.name() == b"claim" {
-                    match rdr.read_event(buf) {
-                        Ok(Event::Start(ref e)) => {
-                            if e.name() == b"claim-text" {
-                                patent_grant.claims.push(deser_text_with_tags_from(e.name(), rdr)?);
-                            } else {
-                                break;
-                            }
-                        },
-                        Ok(_) => break,
-                        Err(err) => return Err(Error::Deser { src: err.to_string() }),
+                    loop {
+                        match rdr.read_event(buf) {
+                            Ok(Event::Start(ref e)) => {
+                                if e.name() == b"claim-text" {
+                                    patent_grant.claims.push(deser_text_with_tags_from(e.name(), rdr)?);
+                                } else {
+                                    break;
+                                }
+                            },
+                            Ok(_) => break,
+                            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+                        }
                     }
                 } else {
                     break; // if no claims, exit
@@ -883,15 +885,28 @@ fn deser_text<B: BufRead>(name: &[u8], rdr: &mut quick_xml::Reader<B>) -> Result
 }
 
 /// special function for dealing with text which has nested tags.
+/// TODO handle nested same tags using depth counter
 fn deser_text_with_tags_from<B: BufRead>(end: &[u8], rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
     let mut frags: Vec<String> = Vec::new();
     let mut buf = Vec::new();
 
+    // depth starts at one because we already consumed first start tag.
+    let mut depth = 1;
+
     loop {
         match rdr.read_event(&mut buf) {
-            Ok(Event::Start(_)) => {},
+            Ok(Event::Start(ref e)) => {
+                if &e.name() == &end {
+                    depth += 1;
+                }
+            },
             Ok(Event::End(ref e)) => {
                 if &e.name() == &end {
+                    depth -= 1;
+                }
+
+                // now final
+                if &e.name() == &end && depth == 0 {
                     break;
                 }
             },

@@ -33,7 +33,7 @@ fn run() -> Result<(), Error> {
             Ok(patent) => {
 
 
-                if patent.claims.iter().any(|claim| claim.contains("represents an organic group")) {
+                if patent.us_bibliographic_data_grant.publication_reference.doc_number == "RE047539" {
                     println!("{:#?}", patent);
                 }
                 //println!("{:#?}", patent.us_bibliographic_data_grant.examiners);
@@ -54,6 +54,7 @@ fn run() -> Result<(), Error> {
                 //println!("{:#?}", patent.descriptions);
                 //println!("{:#?}", patent.us_claim_statement);
                 //println!("{:#?}", patent.claims);
+                //println!("{:#?}", patent);
             },
             Err(err) => {
                 eprintln!("{}", err);
