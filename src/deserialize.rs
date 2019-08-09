@@ -8,7 +8,7 @@ use crate::error::Error;
 use crate::error::Deser;
 // helper macros
 use crate::{try_some, parse_struct_update, parse_struct_update_from};
-use crate::util::consume_start;
+use crate::util::{consume_start, skip_to_tag_within};
 
 pub struct PatentGrants<B: BufRead> {
     rdr: quick_xml::Reader<B>,
@@ -226,7 +226,8 @@ fn deser_biblio<B: BufRead>(
                         biblio.us_application_series_code = deser_text_from(e.name(), rdr)?;
                     },
                     b"us-term-of-grant" => {
-                        biblio.us_term_of_grant = deser_text(b"length-of-grant", rdr)?;
+                        skip_to_tag_within(b"length-of-grant", b"us-term-of-grant", rdr, buf)?;
+                        biblio.us_term_of_grant = deser_text_from(b"length-of-grant", rdr)?;
                     },
                     b"classification-locarno" => {
                         deser_class_locarno(rdr, buf, &mut biblio.classification_locarno)?;

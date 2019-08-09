@@ -94,11 +94,40 @@ pub fn consume_start<B: BufRead>(
             if e.name() == xml_element {
                 Ok(())
             } else {
-                Err(Error::Deser { src: format!("found element {:?}, not {:?}", std::str::from_utf8(e.name()), std::str::from_utf8(xml_element)) })
+                let name = std::str::from_utf8(e.name());
+                let elem = std::str::from_utf8(xml_element);
+                let pos = rdr.buffer_position();
+                Err(Error::Deser { src: format!("found element {:?}, not {:?}; at {}", name, elem, pos) })
             }
         },
         Ok(e) => Err(Error::Deser { src: format!("found non-start-element {:?} besides {:?}", e, std::str::from_utf8(xml_element)) }),
         Err(err) => Err(Error::Deser { src: err.to_string() }),
+    }
+}
+
+// consumes tags until hit start tag w/ name
+pub fn skip_to_tag_within<B: BufRead>(
+    to_tag: &[u8],
+    within_tag: &[u8],
+    rdr: &mut quick_xml::Reader<B>,
+    buf: &mut Vec<u8>,
+    ) -> Result<(), Error>
+{
+    loop {
+        match rdr.read_event(buf) {
+            Ok(Event::Start(ref e)) => {
+                if e.name() == to_tag {
+                    return Ok(());
+                }
+            },
+            Ok(Event::End(ref e)) => {
+                if e.name() == within_tag {
+                    return Ok(());
+                }
+            },
+            _ => {},
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+        }
     }
 }
 
