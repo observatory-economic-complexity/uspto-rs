@@ -166,37 +166,7 @@ fn deser_top_pi<B: BufRead>(
     // get end byte of PI.
     // find beginning byte of next PI.
     // get string in between
-    let mut text_buf = Vec::new();
-    loop {
-        match rdr.read_event(&mut text_buf) {
-            Ok(Event::PI(pi_bytes_2)) => {
-                // just search for the next tail, don't need to match on name.
-                let pi_2_res = pi_bytes_2.unescape_and_decode(&rdr);
-
-                let end = match pi_2_res {
-                    Ok(ref s) => s.split_whitespace().last().context(Deser { src: "No end for PI".to_string() })?,
-                    Err(_) => return Err(Error::Deser { src: "No end for PI".into() }),
-                };
-
-                if end != "end=\"tail\"" {
-                    // in case of nested PI; I don't care about them unless they're
-                    // one of the description ones, so just grab it as part of text
-                    continue;
-                }
-
-                break;
-            },
-            Ok(_) => continue,
-            Err(err) => return Err(Error::Deser { src: err.to_string() }),
-
-        }
-    }
-
-    let text = rdr.decode(&BytesText::from_escaped(text_buf)
-        .unescaped()
-        .map_err(|err| Error::Deser { src: err.to_string() })?
-        ).to_string();
-
+    let text = deser_pi_text_with_tags_to_tail_from(rdr)?;
     patent_grant.descriptions.insert(pi_name.to_string(), text);
 
     Ok(())
@@ -898,8 +868,7 @@ fn deser_text<B: BufRead>(name: &[u8], rdr: &mut quick_xml::Reader<B>) -> Result
     }
 }
 
-/// call when the start tag has already been consumed, now you need the text to the end tag
-/// only deals with nested tags one level
+/// special function for dealing with text which has nested tags.
 fn deser_text_with_tags_from<B: BufRead>(end: &[u8], rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
     let mut frags: Vec<String> = Vec::new();
     let mut buf = Vec::new();
@@ -926,3 +895,45 @@ fn deser_text_with_tags_from<B: BufRead>(end: &[u8], rdr: &mut quick_xml::Reader
     Ok(frags.join(" "))
 }
 
+/// special function for dealing with text which has nested tags, and which will read
+/// to the next PI tag that has end=tail
+fn deser_pi_text_with_tags_to_tail_from<B: BufRead>(rdr: &mut quick_xml::Reader<B>) -> Result<String, Error> {
+    let mut frags: Vec<String> = Vec::new();
+    let mut buf = Vec::new();
+
+    loop {
+        match rdr.read_event(&mut buf) {
+            Ok(Event::Start(_)) => {
+                continue;
+            },
+            Ok(Event::PI(ref tag_bytes)) => {
+                // just search for the next tail, don't need to match on name.
+                let pi_tag_res = tag_bytes.unescape_and_decode(&rdr);
+
+                let end = match pi_tag_res {
+                    Ok(ref s) => s.split_whitespace().last().context(Deser { src: "No end for PI".to_string() })?,
+                    // continue in case of nested PI tag
+                    Err(_) => {
+                        continue;
+                    },
+                };
+
+                if end == "end=\"tail\"" {
+                    // in case of nested PI; I don't care about them unless they're
+                    // one of the description ones, so just grab it as part of text
+                    break;
+                }
+            },
+            Ok(Event::Text(e)) => {
+                let frag = e.unescape_and_decode(rdr)
+                    .map_err(|err| Error::Deser { src: err.to_string() })?;
+
+                frags.push(frag);
+            },
+            Err(err) => return Err(Error::Deser { src: err.to_string() }),
+            _ => {},
+        }
+    }
+
+    Ok(frags.join(" "))
+}
