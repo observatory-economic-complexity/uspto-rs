@@ -1,6 +1,7 @@
 pub mod data;
 mod deserialize;
 pub mod error;
+mod serialize;
 pub mod util;
 
 pub use crate::deserialize::PatentGrants;
