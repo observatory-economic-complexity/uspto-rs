@@ -17,6 +17,16 @@ pub enum Error {
     //          `&quick_xml::errors::Error : snafu::AsErrorSource`
     //          `quick_xml::errors::Error : snafu::AsErrorSource`
     #[snafu(display("Xml Deserialization Error: {}", src))]
-    Deser{ src: String },
+    Deser { src: String },
+    #[snafu(display("Error Opening File {}: {}", path.display(), source))]
+    OpenFile { source: std::io::Error, path: std::path::PathBuf },
+    #[snafu(display("Error Opening Zipfile {}: {}", path.display(), source))]
+    OpenZipfile { source: std::io::Error, path: std::path::PathBuf },
+    #[snafu(display("Error Extracting Zipfile {}: {}", path.display(), source))]
+    ExtractZipfile { source: zip::result::ZipError, path: std::path::PathBuf },
+    #[snafu(display("Invalid Zipfile: {}", source))]
+    InvalidZipfile { source: zip::result::ZipError },
+    #[snafu(display("Invalid Zipfile {}: {}", path.display(), msg))]
+    ZipArchiveNotOneFile { msg: String, path: std::path::PathBuf },
 }
 

@@ -7,6 +7,7 @@
 use snafu::{Snafu, ResultExt, OptionExt};
 use std::fs;
 use std::io::BufReader;
+use std::path::Path;
 use uspto::PatentGrants;
 
 fn main() {
@@ -21,12 +22,9 @@ fn run() -> Result<(), Error> {
         .nth(1)
         .context(CliNoPath)?;
 
-    let f = fs::File::open(data_filepath)
-        .context(OpenDataFile)?;
-    let f = BufReader::new(f);
-
     // deserialize returns an iter of PatentGrant
-    let patents = PatentGrants::from_reader(f);
+    let patents = PatentGrants::from_path(&Path::new(&data_filepath))
+        .expect("couldn't create patent grants iter; make real errors later");
 
     for patent_res in patents {
         match patent_res {
