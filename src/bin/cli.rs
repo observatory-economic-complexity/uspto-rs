@@ -5,6 +5,7 @@
 #![feature(custom_attribute)]
 
 use snafu::{Snafu, ResultExt, OptionExt};
+use std::ffi::OsStr;
 use std::fs;
 use std::io::BufReader;
 use std::path::Path;
@@ -21,9 +22,28 @@ fn run() -> Result<(), Error> {
     let data_filepath = std::env::args()
         .nth(1)
         .context(CliNoPath)?;
+    let path = Path::new(&data_filepath);
+
+    let zip_ext = OsStr::new("zip");
+
+    let patents = match path.extension() {
+        Some(ext) => {
+            if ext == zip_ext {
+                PatentGrants::from_zip(&path)
+                    .expect("couldn't create patent grants iter from zip; make real errors later")
+            } else {
+                PatentGrants::from_path(&path)
+                    .expect("couldn't create patent grants iter from file; make real errors later")
+            }
+        },
+        _ => {
+            PatentGrants::from_path(&path)
+                .expect("couldn't create patent grants iter from file; make real errors later")
+        },
+    };
 
     // deserialize returns an iter of PatentGrant
-    let patents = PatentGrants::from_path(&Path::new(&data_filepath))
+    let patents = PatentGrants::from_path(&path)
         .expect("couldn't create patent grants iter; make real errors later");
 
     for patent_res in patents {

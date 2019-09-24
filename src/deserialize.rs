@@ -4,7 +4,8 @@ use snafu::{OptionExt, ResultExt};
 use std::fs::File;
 use std::io::{self, Read, BufRead, BufReader};
 use std::path::Path;
-use zip::ZipArchive;
+use flate2::bufread::DeflateDecoder;
+use flate2::Compression;
 
 use crate::data::*;
 use crate::error::Error;
@@ -14,33 +15,29 @@ use crate::error::{OpenZipfile, OpenFile, ExtractZipfile, InvalidZipfile};
 use crate::{try_some, parse_struct_update, parse_struct_update_from};
 use crate::util::{consume_start, skip_to_tag_within};
 
-pub enum Source<R: Read + io::Seek> {
-    Zip(ZipArchive<R>),
-    UnZipped(R),
-}
 
-pub struct PatentGrants<R: Read + io::Seek> {
-    source: Source<R>,
+pub struct PatentGrants {
+    rdr: quick_xml::Reader<BufReader<Box<dyn Read>>>,
     buf: Vec<u8>,
 }
 
-impl PatentGrants<std::fs::File> {
+impl PatentGrants {
     pub fn from_zip(path: &Path) -> Result<Self, Error> {
         let zipfile = std::fs::File::open(path)
             .context(OpenZipfile { path: path.to_path_buf() })?;
 
-        let mut archive = ZipArchive::new(zipfile)
-            .context(ExtractZipfile { path: path.to_path_buf() })?;
+        let zip_buffered = BufReader::new(zipfile);
+        let mut deflater = DeflateDecoder::new(zip_buffered);
 
-        if archive.len() != 1 {
-            return Err(Error::ZipArchiveNotOneFile {
-                msg: "Archive does not contain only one file".to_owned(),
-                path: path.to_path_buf(),
-            });
-        }
+        let deflate_buffered = BufReader::new(Box::new(deflater) as Box<dyn Read>);
+
+
+        let mut rdr = Reader::from_reader(deflate_buffered);
+
+        rdr.trim_text(true);
 
         Ok(PatentGrants {
-            source: Source::Zip(archive),
+            rdr,
             buf: Vec::new(),
         })
     }
@@ -49,42 +46,32 @@ impl PatentGrants<std::fs::File> {
         let f = File::open(path)
             .context(OpenFile { path: path.to_path_buf() })?;
 
+        let f_buf = BufReader::new(Box::new(f) as Box<dyn Read>);
+        let mut rdr = Reader::from_reader(f_buf);
+
+        rdr.trim_text(true);
+
         Ok(PatentGrants {
-            source: Source::UnZipped(f),
+            rdr,
             buf: Vec::new(),
         })
     }
 }
 
-impl<R> PatentGrants<R> where R: Read + io::Seek {
+impl PatentGrants {
     /// main entry point for deserialization
     ///
     /// returns None if no more data
     /// else if there's an error in deser (e.g. partial data)
     /// return Some(Result<_>)
     fn deser_patent_grant(&mut self) -> Option<Result<PatentGrant, Error>> {
+        println!("hit");
         // the box is for type erasure; the structs themselves will cause an error
         // that the match arms are mismatched, but `as Box` turns them into type
         // objects, both of which implement the trait Read.
-        let mut rdr = match &mut self.source {
-            Source::Zip(archive) => {
-                let f = archive.by_index(0)
-                    .expect("logic bug, from_zip checks that this index is valid");
-                let f = std::io::BufReader::new(Box::new(f) as Box<dyn Read>);
-
-                Reader::from_reader(f)
-
-            },
-            Source::UnZipped(f) => {
-                let f = BufReader::new(Box::new(f) as Box<dyn Read>);
-                Reader::from_reader(f)
-            },
-        };
-
-        rdr.trim_text(true);
 
         // first skip through headers
-        let hdr = deser_header(&mut rdr, &mut self.buf);
+        let hdr = deser_header(&mut self.rdr, &mut self.buf);
         match hdr {
             Some(hdr_res) => {
                 if let Err(err) = hdr_res {
@@ -100,20 +87,20 @@ impl<R> PatentGrants<R> where R: Read + io::Seek {
 
         // deser for each element, update default patent grant
         loop {
-            match rdr.read_event(&mut self.buf) {
+            match self.rdr.read_event(&mut self.buf) {
                 Ok(Event::PI(pi_bytes)) => {
-                    try_some!(deser_top_pi(pi_bytes, &mut rdr, &mut patent_grant));
+                    try_some!(deser_top_pi(pi_bytes, &mut self.rdr, &mut patent_grant));
                 },
                 Ok(Event::Start(ref e)) => {
                     match e.name() {
                         b"us-claim-statement" => {
-                            patent_grant.us_claim_statement = try_some!(deser_text_from(e.name(), &mut rdr));
+                            patent_grant.us_claim_statement = try_some!(deser_text_from(e.name(), &mut self.rdr));
                         },
                         b"claims" => {
-                            try_some!(deser_claims(&mut rdr, &mut self.buf, &mut patent_grant));
+                            try_some!(deser_claims(&mut self.rdr, &mut self.buf, &mut patent_grant));
                         },
                         b"us-bibliographic-data-grant" => {
-                            try_some!(deser_biblio(&mut rdr, &mut self.buf, &mut patent_grant.us_bibliographic_data_grant));
+                            try_some!(deser_biblio(&mut self.rdr, &mut self.buf, &mut patent_grant.us_bibliographic_data_grant));
                         },
                         _ => continue,
                     }
@@ -137,7 +124,7 @@ impl<R> PatentGrants<R> where R: Read + io::Seek {
     }
 }
 
-impl<R> Iterator for PatentGrants<R> where R: Read + io::Seek {
+impl Iterator for PatentGrants {
     type Item = Result<PatentGrant, Error>;
 
     // clear buf after each PatentGrant;
