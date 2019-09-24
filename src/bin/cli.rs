@@ -29,6 +29,17 @@ fn run() -> Result<(), Error> {
     let patents = match path.extension() {
         Some(ext) => {
             if ext == zip_ext {
+                println!("using zip {:?}", path);
+                // test
+                use std::io::Read;
+                let f = std::fs::File::open(path).unwrap();
+                let f = std::io::BufReader::new(f);
+                let mut deflater = flate2::bufread::DeflateDecoder::new(f);
+                let mut s = String::new();
+                deflater.read_to_string(&mut s).unwrap();
+                println!("{}", s);
+
+                //real
                 PatentGrants::from_zip(&path)
                     .expect("couldn't create patent grants iter from zip; make real errors later")
             } else {
