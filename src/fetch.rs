@@ -21,7 +21,7 @@ pub struct FetchGrants {
 }
 
 impl FetchGrants {
-    pub fn new() -> Self {
+    pub fn new(year_min: i32, year_max: i32, target_dir: PathBuf) -> Self {
 
         let current_year = Utc::now().year();
 
@@ -29,7 +29,7 @@ impl FetchGrants {
             year_min: 1976,
             year_max: current_year,
             listings: HashMap::new(),
-            target: PathBuf::from("data"),
+            target: target_dir,
         }
     }
 

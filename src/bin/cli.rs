@@ -4,10 +4,13 @@
 
 #![feature(custom_attribute)]
 
-use snafu::{Snafu, ResultExt, OptionExt};
+use snafu::{Snafu, ResultExt};
 use std::fs;
 use std::io::BufReader;
+use std::path::PathBuf;
+use structopt::StructOpt;
 use uspto::PatentGrants;
+use uspto::fetch;
 
 fn main() {
     match run() {
@@ -17,11 +20,29 @@ fn main() {
 }
 
 fn run() -> Result<(), Error> {
-    let data_filepath = std::env::args()
-        .nth(1)
-        .context(CliNoPath)?;
+    let opts = CliOpt::from_args();
 
-    let f = fs::File::open(data_filepath)
+    match opts.command {
+        Command::Fetch { year, target_dir }=> {
+            // for now, just one year
+            let mut fetcher = fetch::FetchGrants::new(year, year, target_dir);
+
+            fetcher.fetch_listings()
+                .context(UsPto)?;
+
+            fetcher.fetch_all()
+                .context(UsPto)?;
+
+            Ok(())
+        },
+        Command::Process { data_filepath } => {
+            process(data_filepath)
+        },
+    }
+}
+
+fn process(path: PathBuf) -> Result<(), Error> {
+    let f = fs::File::open(path)
         .context(OpenDataFile)?;
     let f = BufReader::new(f);
 
@@ -67,6 +88,29 @@ fn run() -> Result<(), Error> {
     Ok(())
 }
 
+#[derive(Debug, StructOpt)]
+#[structopt(name="uspto")]
+struct CliOpt {
+    #[structopt(subcommand)]
+    command: Command,
+}
+
+#[derive(Debug, StructOpt)]
+enum Command {
+    #[structopt(name="fetch")]
+    Fetch {
+        // TODO this currently only allows one year.
+        #[structopt(long="year")]
+        year: i32,
+        #[structopt(long="target-dir", parse(from_os_str))]
+        target_dir: PathBuf,
+    },
+    #[structopt(name="process")]
+    Process {
+        #[structopt(parse(from_os_str))]
+        data_filepath: PathBuf,
+    },
+}
 
 #[derive(Debug, Snafu)]
 enum Error {
@@ -76,5 +120,7 @@ enum Error {
     OpenDataFile { source: std::io::Error },
     #[snafu(display("Read Datafile Error: {}", source))]
     ReadDataFile { source: std::io::Error },
+    #[snafu(display("USPTO lib Error: {}", source))]
+    UsPto { source: uspto::Error },
 }
 
