@@ -40,8 +40,7 @@ impl FetchGrants {
         for year in years {
             println!("Fetching listing for {}", year);
             let listing = fetch_year_listing(year)?;
-            let year_listing = self.listings.entry(year).or_default();
-            year_listing.extend_from_slice(&listing);
+            self.listings.entry(year).or_insert(listing);
         }
 
         Ok(())
