@@ -18,5 +18,9 @@ pub enum Error {
     //          `quick_xml::errors::Error : snafu::AsErrorSource`
     #[snafu(display("Xml Deserialization Error: {}", src))]
     Deser{ src: String },
+    #[snafu(display("Fetch Error: {}", source))]
+    Fetch{ source: reqwest::Error },
+    #[snafu(display("Fetch Create File Error: {}", source))]
+    CreateFile{ source: std::io::Error },
 }
 

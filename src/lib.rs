@@ -1,6 +1,7 @@
 pub mod data;
 mod deserialize;
 pub mod error;
+pub mod fetch;
 mod serialize;
 pub mod util;
 
