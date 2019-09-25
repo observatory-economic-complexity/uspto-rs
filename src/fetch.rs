@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest;
 use snafu::ResultExt;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use crate::error::Error;
@@ -17,7 +17,7 @@ lazy_static!{
 pub struct FetchGrants {
     year_min: i32,
     year_max: i32,
-    listings: HashMap<i32, Vec<String>>,
+    listings: HashMap<i32, HashSet<String>>,
     target: PathBuf,
 }
 
@@ -97,7 +97,7 @@ pub fn fetch_file_week(year: i32, file_name: &str) -> Result<reqwest::Response, 
 /// - get year's listing
 /// - find file names
 /// - save to hashmap
-pub fn fetch_year_listing(year: i32) -> Result<Vec<String>, Error> {
+pub fn fetch_year_listing(year: i32) -> Result<HashSet<String>, Error> {
     let dir_url = format!("https://bulkdata.uspto.gov/data/patent/grant/redbook/bibliographic/{}", year);
 
     let dir_listing = reqwest::get(&dir_url)
