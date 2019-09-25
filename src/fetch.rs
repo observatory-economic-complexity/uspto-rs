@@ -1,4 +1,4 @@
-use chrono::{Utc, Datelike};
+//use chrono::{Utc, Datelike};
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest;
@@ -13,6 +13,7 @@ lazy_static!{
     static ref DIR_RE: Regex = Regex::new(r#"ipgb[0-9]{8}_wk[0-9]{2}\.zip"#).unwrap();
 }
 
+#[derive(Debug)]
 pub struct FetchGrants {
     year_min: i32,
     year_max: i32,
@@ -23,11 +24,11 @@ pub struct FetchGrants {
 impl FetchGrants {
     pub fn new(year_min: i32, year_max: i32, target_dir: PathBuf) -> Self {
 
-        let current_year = Utc::now().year();
+        //let current_year = Utc::now().year();
 
         Self {
-            year_min: 1976,
-            year_max: current_year,
+            year_min,
+            year_max,
             listings: HashMap::new(),
             target: target_dir,
         }
@@ -37,6 +38,7 @@ impl FetchGrants {
         let years = self.year_min..=self.year_max;
 
         for year in years {
+            println!("Fetching listing for {}", year);
             let listing = fetch_year_listing(year)?;
             let year_listing = self.listings.entry(year).or_default();
             year_listing.extend_from_slice(&listing);
@@ -47,10 +49,13 @@ impl FetchGrants {
 
     /// fetch one year only.
     pub fn fetch_file_year(&self, year: i32) -> Result<(), Error> {
+        println!("Fetching files for {}", year);
+
         // get year listing from cache
         let listing = self.listings.get(&year).expect("make error for this; fetch listings must run first");
 
         for file_name in listing {
+            println!("Fetching file {}", file_name);
             //io copy from response to target
             let target_filepath = self.target.join(file_name.as_str());
             let mut target_file = std::fs::File::create(target_filepath)
@@ -59,7 +64,8 @@ impl FetchGrants {
             std::io::copy(
                 &mut fetch_file_week(year, file_name.as_str())?,
                 &mut target_file,
-            );
+            )
+            .context(CreateFile)?;
         }
 
         Ok(())
@@ -67,6 +73,7 @@ impl FetchGrants {
 
     /// fetch all years (from 1976)
     pub fn fetch_all(&self) -> Result<(), Error> {
+        println!("Fetching all for {:?}", self);
         let years = self.year_min..=self.year_max;
 
         for year in years {
