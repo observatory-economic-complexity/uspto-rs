@@ -10,8 +10,8 @@ use crate::data::PatentGrant;
 pub struct PatentOutput {
     id: String,
     date: String,
-    country_inventor: Vec<String>,
-    country_assignee: Vec<String>,
+    country_inventor: String,
+    country_assignee: String,
     classification_locarno: String,
     classification_national: String,
 }
@@ -20,18 +20,21 @@ impl From<&PatentGrant> for PatentOutput {
     fn from(pg: &PatentGrant) -> Self {
         let dg = &pg.us_bibliographic_data_grant;
 
-        let country_inventor = dg
+        let country_inventor: Vec<String> = dg
             .inventors
             .iter()
             .filter_map(|inventor| inventor.addressbook.address.country.as_ref())
             .cloned()
             .collect();
-        let country_assignee = dg
+        let country_inventor = country_inventor.join(";");
+
+        let country_assignee: Vec<String> = dg
             .assignees
             .iter()
             .filter_map(|assignee| assignee.addressbook.address.country.as_ref())
             .cloned()
             .collect();
+        let country_assignee = country_assignee.join(";");
 
         PatentOutput {
             id: dg.publication_reference.doc_number.clone(),
