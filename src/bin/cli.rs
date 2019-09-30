@@ -54,9 +54,9 @@ fn process(path: PathBuf) -> Result<(), Error> {
             Ok(patent) => {
 
 
-                if patent.us_bibliographic_data_grant.publication_reference.doc_number == "RE047539" {
-                    println!("{:#?}", patent);
-                }
+                //if patent.us_bibliographic_data_grant.publication_reference.doc_number == "RE047539" {
+                //    println!("{:#?}", patent);
+                //}
                 //println!("{:#?}", patent.us_bibliographic_data_grant.examiners);
                 //println!("{:#?}", patent.us_bibliographic_data_grant.assignees);
                 //println!("{:#?}", patent.us_bibliographic_data_grant.agents);
@@ -75,7 +75,7 @@ fn process(path: PathBuf) -> Result<(), Error> {
                 //println!("{:#?}", patent.descriptions);
                 //println!("{:#?}", patent.us_claim_statement);
                 //println!("{:#?}", patent.claims);
-                //println!("{:#?}", patent);
+                println!("{:#?}", patent);
             },
             Err(err) => {
                 eprintln!("{}", err);
