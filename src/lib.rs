@@ -7,6 +7,7 @@ pub mod util;
 
 pub use crate::deserialize::PatentGrants;
 pub use crate::error::Error;
+pub use crate::serialize::PatentOutput;
 
 #[cfg(test)]
 mod tests {

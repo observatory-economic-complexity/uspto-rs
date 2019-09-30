@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::convert::From;
 
 use crate::data::PatentGrant;
@@ -5,6 +6,7 @@ use crate::data::PatentGrant;
 /// Output format (csv) to be ingested into rows of cube
 ///
 /// No measures; just count
+#[derive(Serialize)]
 pub struct PatentOutput {
     id: String,
     date: String,

@@ -4,12 +4,13 @@
 
 #![feature(custom_attribute)]
 
+use csv;
 use snafu::{Snafu, ResultExt};
 use std::fs;
 use std::io::BufReader;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use uspto::PatentGrants;
+use uspto::{PatentGrants, PatentOutput};
 use uspto::fetch;
 
 fn main() {
@@ -35,25 +36,30 @@ fn run() -> Result<(), Error> {
 
             Ok(())
         },
-        Command::Process { data_filepath } => {
-            process(data_filepath)
+        Command::Process { data_filepath, target_filepath } => {
+            process(&data_filepath, &target_filepath)
         },
     }
 }
 
-fn process(path: PathBuf) -> Result<(), Error> {
-    let f = fs::File::open(path)
+fn process(data_path: &Path, target_path: &Path) -> Result<(), Error> {
+    let f = fs::File::open(data_path)
         .context(OpenDataFile)?;
     let f = BufReader::new(f);
 
+    let mut wtr = csv::Writer::from_path(target_path)
+        .context(WriteCsv)?;
+
     // deserialize returns an iter of PatentGrant
     let patents = PatentGrants::from_reader(f);
-
     for patent_res in patents {
         match patent_res {
             Ok(patent) => {
+                let output: PatentOutput = (&patent).into();
+                wtr.serialize(output)
+                    .context(WriteCsv)?;
 
-
+                // Some examples for inspecting data. You may be able to also use grep
                 //if patent.us_bibliographic_data_grant.publication_reference.doc_number == "RE047539" {
                 //    println!("{:#?}", patent);
                 //}
@@ -75,7 +81,7 @@ fn process(path: PathBuf) -> Result<(), Error> {
                 //println!("{:#?}", patent.descriptions);
                 //println!("{:#?}", patent.us_claim_statement);
                 //println!("{:#?}", patent.claims);
-                println!("{:#?}", patent);
+                //println!("{:#?}", patent);
             },
             Err(err) => {
                 eprintln!("{}", err);
@@ -83,6 +89,9 @@ fn process(path: PathBuf) -> Result<(), Error> {
             },
         }
     }
+
+    wtr.flush()
+        .context(WriteOutput)?;
 
 
     Ok(())
@@ -109,6 +118,8 @@ enum Command {
     Process {
         #[structopt(parse(from_os_str))]
         data_filepath: PathBuf,
+        #[structopt(long="target-path", parse(from_os_str))]
+        target_filepath: PathBuf,
     },
 }
 
@@ -122,5 +133,9 @@ enum Error {
     ReadDataFile { source: std::io::Error },
     #[snafu(display("USPTO lib Error: {}", source))]
     UsPto { source: uspto::Error },
+    #[snafu(display("Write Csv Error: {}", source))]
+    WriteCsv { source: csv::Error },
+    #[snafu(display("Serialize Output Error: {}", source))]
+    WriteOutput { source: std::io::Error },
 }
 
